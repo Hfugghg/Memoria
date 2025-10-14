@@ -16,6 +16,13 @@ package com.exp.memoria.domain.usecase
  * 关联:
  * - 注入 MemoryRepository 和 LlmRepository。
  * - MemoryProcessingWorker 会在后台任务中调用这个Use Case来处理积压的记忆。
+ *
+ * 实现指导 (在 execute/invoke 方法中):
+ * 1. 接收一条待处理的浓缩记忆对象(CondensedMemory)作为参数。
+ * 2. **生成摘要**: 将原始对话内容发送给 LlmRepository.getSummary()，获取浓缩后的摘要文本 [cite: 25]。
+ * 3. **生成向量**: 将摘要文本发送给 LlmRepository.getEmbedding()，获取高精度浮点向量 [cite: 25]。
+ * 4. **向量量化**: 将 float32 向量转换为 int8 向量以节省空间并加速计算 [cite: 29, 47]。
+ * 5. **更新数据库**: 调用 MemoryRepository.updateProcessedMemory(...)，将生成的摘要、量化向量存入数据库，并更新该记忆的状态为 "INDEXED" [cite: 67]。
  */
 class ProcessMemoryUseCase {
 }

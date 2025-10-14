@@ -20,6 +20,13 @@ import com.exp.memoria.data.local.entity.RawMemory
  * 关联:
  * - 这是应用本地数据持久化的核心。
  * - DatabaseModule 会创建这个类的单例实例，并从中获取DAO提供给其他部分使用。
+ *
+ * 实现指导:
+ * - @Database(entities = [RawMemory::class, CondensedMemory::class, FTSMemoryIndex::class], version = 1)
+ * abstract class MemoriaDatabase : RoomDatabase()
+ * - abstract fun rawMemoryDao(): RawMemoryDao
+ * - abstract fun condensedMemoryDao(): CondensedMemoryDao
+ * - FTSMemoryIndex 需要被定义为一个 @Entity 且使用 @Fts5 注解，并关联到 CondensedMemory 的 `summary_text` 字段 [cite: 64, 71]。
  */
 
 @Database(entities = [RawMemory::class, CondensedMemory::class], version = 1, exportSchema = false)

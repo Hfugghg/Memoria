@@ -26,6 +26,16 @@ import javax.inject.Inject
  * 关联:
  * - 注入 GetChatResponseUseCase 和 MemoryRepository，以及 WorkManager 的实例。
  * - ChatScreen 会观察这个ViewModel暴露出的UI状态并据此渲染界面。
+ *
+ * 实现指导:
+ * - @HiltViewModel 注解，通过构造函数注入 GetChatResponseUseCase, MemoryRepository, WorkManager。
+ * - 定义一个 `_uiState` (MutableStateFlow) 和一个 `uiState` (StateFlow) 来暴露UI状态。
+ * - fun onSendMessage(message: String):
+ * a. 更新UI状态，将用户消息添加到列表中并显示加载状态。
+ * b. 在 viewModelScope.launch 中调用 `GetChatResponseUseCase(message)`。
+ * c. 收到回复后，调用 `MemoryRepository.saveNewMemory(...)` 保存这次新的问答记录。
+ * d. 更新UI状态，将AI回复添加到列表中并取消加载状态。
+ * e. 向 WorkManager 提交一个 OneTimeWorkRequest，调度 `MemoryProcessingWorker` 在后台自动处理这条新记忆 [cite: 24, 29]。
  */
 
 @HiltViewModel

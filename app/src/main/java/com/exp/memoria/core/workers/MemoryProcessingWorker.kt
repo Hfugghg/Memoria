@@ -15,6 +15,15 @@ package com.exp.memoria.core.workers
  * - 这是一个继承自 CoroutineWorker 的类。
  * - 需要通过Hilt的辅助注入机制来获取其依赖，如 ProcessMemoryUseCase。
  * - ChatViewModel 会在每次对话结束后，向WorkManager调度一个新的、一次性的工作请求来运行这个Worker。
+ *
+ * 实现指导:
+ * - 继承自 `CoroutineWorker` 并使用 `@HiltWorker` 注解。
+ * - 在构造函数中注入 `ProcessMemoryUseCase` 和 `MemoryRepository`。
+ * - 在 `doWork()` 方法中:
+ * a. 调用 `MemoryRepository.getMemoriesToProcess()` 获取所有状态为"NEW"的记忆列表 [cite: 67]。
+ * b. 遍历列表，对每一条记忆调用 `ProcessMemoryUseCase(...)`。
+ * c. 根据处理结果返回 `Result.success()` 或 `Result.failure()`。
+ * - 在ViewModel中构建WorkRequest时，可以设置Constraints，如 `setRequiredNetworkType`, `setRequiresCharging(true)` 等 [cite: 46]。
  */
 
 class MemoryProcessingWorker {

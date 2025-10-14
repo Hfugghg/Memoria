@@ -18,6 +18,19 @@ import androidx.room.PrimaryKey
  * 关联:
  * - 这个类是 MemoriaDatabase 中 entities 列表的一部分。
  * - CondensedMemoryDao 使用这个类作为其操作的数据模型。
+ *
+ * 实现指导:
+ * - 使用 @Entity(
+ * tableName = "CondensedMemory",
+ * foreignKeys = [ForeignKey(entity = RawMemory::class, parentColumns = ["id"], childColumns = ["raw_memory_id"])]
+ * )
+ * - @PrimaryKey(autoGenerate = true) val id: Long = 0
+ * - @ColumnInfo(name = "raw_memory_id", index = true) val rawMemoryId: Long [cite: 63]
+ * - @ColumnInfo(name = "summary_text") val summaryText: String [cite: 64] // 将用于FTS索引。
+ * - @ColumnInfo(name = "vector_float32", typeAffinity = ColumnInfo.BLOB) val vectorFloat32: ByteArray? [cite: 65] // 处理后可清空。
+ * - @ColumnInfo(name = "vector_int8", typeAffinity = ColumnInfo.BLOB) val vectorInt8: ByteArray? [cite: 66] // 用于快速相似度计算。
+ * - @ColumnInfo(name = "status") val status: String [cite: 67] // "NEW" 或 "INDEXED"。
+ * - @ColumnInfo(name = "timestamp") val timestamp: Long [cite: 68]
  */
 
 @Entity(

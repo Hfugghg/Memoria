@@ -19,6 +19,12 @@ import com.exp.memoria.data.local.entity.RawMemory
  * - 这是一个Room DAO接口，方法上会使用 @Insert, @Query, @Delete 等注解。
  * - 其实现由Room在编译时自动生成。
  * - 该接口的实例由 DatabaseModule 提供，并被注入到 MemoryRepository 中使用。
+ *
+ * 实现指导:
+ * - @Dao 注解接口。
+ * - fun insert(rawMemory: RawMemory): Long  // 插入一条新的原始记忆。
+ * - @Query("SELECT * FROM RawMemory ORDER BY timestamp DESC LIMIT :limit")
+ * fun getLatestMemories(limit: Int): List<RawMemory> // 获取最新的记忆作为热记忆。
  */
 
 @Dao

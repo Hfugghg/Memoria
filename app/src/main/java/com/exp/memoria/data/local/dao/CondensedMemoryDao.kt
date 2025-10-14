@@ -17,6 +17,18 @@ import androidx.room.Dao
  * 关联:
  * - Room DAO接口，使用 @Insert, @Query, @Update 等注解。
  * - 它的实例由 DatabaseModule 提供，并被注入到 MemoryRepository 中。
+ *
+ * 实现指导:
+ * - @Dao 注解接口。
+ * - fun insert(condensedMemory: CondensedMemory): Long
+ * - @Query("UPDATE CondensedMemory SET summary_text = :summary, vector_int8 = :vector, status = 'INDEXED' WHERE id = :id")
+ * fun updateProcessedMemory(id: Long, summary: String, vector: ByteArray) // 更新处理完成的记忆。
+ * - @Query("SELECT * FROM CondensedMemory WHERE status = 'NEW'")
+ * fun getUnprocessedMemories(): List<CondensedMemory> // 获取待处理的记忆。
+ * - @Query("SELECT rowid FROM FTSMemoryIndex WHERE FTSMemoryIndex MATCH :query")
+ * fun searchFtsIndex(query: String): List<Long> // FTS预过滤，返回匹配的CondensedMemory的ID。
+ * - @Query("SELECT id, vector_int8 FROM CondensedMemory WHERE id IN (:ids)")
+ * fun getVectorsByIds(ids: List<Long>): List<Pair<Long, ByteArray>> // 根据ID获取向量用于精排。
  */
 
 @Dao

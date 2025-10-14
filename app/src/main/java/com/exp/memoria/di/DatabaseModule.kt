@@ -22,6 +22,12 @@ import javax.inject.Singleton
  * 关联:
  * - @Module 和 @InstallIn(SingletonComponent::class) 确保数据库实例是全局单例。
  * - 此模块提供的DAO实例将被注入到 MemoryRepository 中，用于执行实际的数据库读写操作。
+ *
+ * 实现指导:
+ * - 创建一个 @Provides @Singleton fun provideDatabase(app: Application): MemoriaDatabase 方法。
+ * - 在该方法内部，使用 Room.databaseBuilder 来构建数据库实例。
+ * - 确保调用 .fallbackToDestructiveMigration() (用于开发) 或添加正确的迁移策略 (用于生产)。
+ * - 创建多个 @Provides fun provide...Dao(database: MemoriaDatabase) 方法，用于从数据库实例中提供具体的DAO。
  */
 
 @Module

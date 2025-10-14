@@ -20,6 +20,14 @@ import javax.inject.Inject
  * 关联:
  * - 注入 MemoryRepository 和 LlmRepository。
  * - ChatViewModel 会调用这个Use Case来获取AI的回复。
+ *
+ * 实现指导 (在 execute/invoke 方法中):
+ * 1. 接收用户当前的问题(Query)作为参数。
+ * 2. **获取热记忆**: 调用 MemoryRepository 获取全部“热记忆” [cite: 32]。
+ * 3. **检索冷记忆**: 调用 MemoryRepository.findRelevantColdMemories(query) 执行“FTS预过滤 + 向量精排”二级检索，找出最相关的历史记忆 [cite: 33]。
+ * 4. **动态组装上下文**: 将“热记忆”、“检索出的冷记忆”和用户当前问题智能地组合成一个丰富的上下文Prompt [cite: 35]。
+ * 5. **生成回答**: 调用 LlmRepository 将组合好的上下文发送给主LLM，并获取最终回答 [cite: 35]。
+ * 6. 返回生成的回答给ViewModel。
  */
 
 class GetChatResponseUseCase @Inject constructor(
