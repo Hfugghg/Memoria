@@ -5,6 +5,21 @@ import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.PrimaryKey
 
+/**
+ * [浓缩记忆实体类]
+ *
+ * 职责:
+ * 1. 定义 "CondensedMemory" 数据库表的结构 [cite: 59]。
+ * 2. 字段需要与计划书中的数据模型完全对应：id, raw_memory_id, summary_text, vector_float32, vector_int8, status, timestamp [cite: 62, 63, 64, 65, 66, 67, 68]。
+ * 3. 使用 @Entity 注解，并可能使用 @ForeignKey 来建立与 RawMemory 表的关联 [cite: 63]。
+ * 4. `summary_text` 字段是全文检索引擎（FTS）的目标 [cite: 64, 70]。
+ * 5. `vector_int8` 存储量化后的向量，用于快速相似度计算，实现“冷记忆”的检索增强 [cite: 17, 33, 66]。
+ *
+ * 关联:
+ * - 这个类是 MemoriaDatabase 中 entities 列表的一部分。
+ * - CondensedMemoryDao 使用这个类作为其操作的数据模型。
+ */
+
 @Entity(
     tableName = "condensed_memory",
     foreignKeys = [

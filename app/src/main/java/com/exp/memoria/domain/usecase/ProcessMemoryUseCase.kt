@@ -1,4 +1,21 @@
 package com.exp.memoria.domain.usecase
 
+
+/**
+ * [处理记忆的业务用例 (Use Case)]
+ *
+ * 职责:
+ * 1. 封装将一条“热记忆”转换为可检索的“冷记忆”的完整后台处理流程 [cite: 17, 28]。
+ * 2. 执行流程：
+ * a. 接收一条待处理的原始记忆(RawMemory)或其ID。
+ * b. 调用 LlmRepository 为其生成摘要(summary_text) [cite: 25]。
+ * c. 调用 LlmRepository (或Embedding服务) 为其生成高精度向量(vector_float32) [cite: 25]。
+ * d. (可选优化)对向量进行量化，生成vector_int8 [cite: 29, 47]。
+ * e. 调用 MemoryRepository 将生成的摘要、向量存储到对应的CondensedMemory记录中，并将状态从"NEW"更新为"INDEXED" [cite: 67]。
+ *
+ * 关联:
+ * - 注入 MemoryRepository 和 LlmRepository。
+ * - MemoryProcessingWorker 会在后台任务中调用这个Use Case来处理积压的记忆。
+ */
 class ProcessMemoryUseCase {
 }

@@ -12,6 +12,22 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import kotlinx.coroutines.launch
 
+/**
+ * [聊天界面的Compose UI]
+ *
+ * 职责:
+ * 1. 使用Jetpack Compose构建用户交互界面 [cite: 76]。
+ * 2. 界面应包含一个消息列表（如LazyColumn）和一个位于底部的文本输入框及发送按钮 [cite: 21, 22]。
+ * 3. 观察(collect)来自 ChatViewModel 的UI状态(ChatState)。
+ * 4. 当状态变化时，自动重组(Recompose)界面，例如显示新的消息或加载指示器。
+ * 5. 将用户的输入和点击事件传递给 ChatViewModel 进行处理。
+ * 6. 确保UI流畅，所有耗时操作都在ViewModel的协程中完成 [cite: 41]。
+ *
+ * 关联:
+ * - 通过Hilt的 `@HiltViewModel` 机制获取 ChatViewModel 的实例。
+ * - 使用 `ui/components` 中定义的可复用组件来构建界面。
+ */
+
 @Composable
 fun ChatScreen(viewModel: ChatViewModel = hiltViewModel()) {
     val uiState by viewModel.uiState.collectAsState()
