@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">Memoria</string>
+    <string name="title_activity_memoria_application">MemoriaApplication</string>
 </resources>
