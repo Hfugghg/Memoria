@@ -1,4 +1,8 @@
 package com.exp.memoria.data.local.dao
 
-class CondensedMemoryDao {
+import androidx.room.Dao
+
+@Dao
+interface CondensedMemoryDao {
+    // Functions will be added later
 }
