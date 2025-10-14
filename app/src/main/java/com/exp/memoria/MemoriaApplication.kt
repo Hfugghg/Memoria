@@ -17,20 +17,6 @@ import dagger.hilt.android.HiltAndroidApp
 
 @HiltAndroidApp
 class MemoriaApplication : Application() {
-//    override fun onCreate(savedInstanceState: Bundle?) {
-//        super.onCreate(savedInstanceState)
-//        enableEdgeToEdge()
-//        setContent {
-//            MemoriaTheme {
-//                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-//                    Greeting(
-//                        name = "Android",
-//                        modifier = Modifier.padding(innerPadding)
-//                    )
-//                }
-//            }
-//        }
-//    }
 }
 
 @Composable

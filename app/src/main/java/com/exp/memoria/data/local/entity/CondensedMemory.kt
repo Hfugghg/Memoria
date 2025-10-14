@@ -26,7 +26,7 @@ data class CondensedMemory(
     val status: String, // [cite: 67]
     val timestamp: Long // [cite: 68]
 ) {
-    // equals/hashCode needed for ByteArray comparison
+    // ByteArray 比较需要 equals/hashCode
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (javaClass != other?.javaClass) return false

@@ -1,9 +1,9 @@
 package com.exp.memoria.ui.chat
 
-// Represents a single message in the chat
+// 表示聊天中的单条消息
 data class ChatMessage(val text: String, val isFromUser: Boolean)
 
-// Represents the entire state of the chat screen
+// 表示聊天屏幕的整个状态
 data class ChatState(
     val messages: List<ChatMessage> = emptyList(),
     val isLoading: Boolean = false

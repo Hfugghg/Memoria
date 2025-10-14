@@ -21,7 +21,7 @@ class ChatViewModel @Inject constructor(
     fun sendMessage(query: String) {
         if (query.isBlank()) return
 
-        // Add user's message to UI immediately
+        // 立即将用户消息添加到 UI
         _uiState.update { currentState ->
             currentState.copy(
                 messages = currentState.messages + ChatMessage(text = query, isFromUser = true),
@@ -29,7 +29,7 @@ class ChatViewModel @Inject constructor(
             )
         }
 
-        // Launch a coroutine to get the AI response
+        // 启动协程以获取 AI 响应
         viewModelScope.launch {
             val response = getChatResponseUseCase(query)
             _uiState.update { currentState ->

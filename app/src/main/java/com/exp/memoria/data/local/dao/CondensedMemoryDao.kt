@@ -4,5 +4,5 @@ import androidx.room.Dao
 
 @Dao
 interface CondensedMemoryDao {
-    // Functions will be added later
+    // 稍后会添加函数
 }

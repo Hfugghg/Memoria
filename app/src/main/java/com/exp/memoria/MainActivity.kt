@@ -8,7 +8,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 import com.exp.memoria.ui.chat.ChatScreen
-import com.exp.memoria.ui.theme.MemoriaTheme // Your theme file
+import com.exp.memoria.ui.theme.MemoriaTheme
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
