@@ -12,34 +12,34 @@ import retrofit2.http.Query
  * [LLM网络服务接口]
  *
  * 职责:
- * 1. 使用Retrofit定义与大语言模型(LLM) API的通信接口 [cite: 80]。
- * 2. 定义一个方法用于发送组装好的上下文并获取AI回答（主LLM）[cite: 35]。
- * 3. 定义一个方法用于发送原始对话，获取其摘要文本（浓缩LLM）[cite: 14, 25]。
- * 4. (可选) 定义一个方法用于获取文本的向量表示(Embedding)。如果Embedding服务和LLM是分开的，就需要额外定义。
+ * 1.  使用Retrofit定义与大语言模型(LLM) API通信的抽象方法。
+ * 2.  **强类型契约**: 此接口现在是类型安全的。它明确声明了每个API端点所期望的请求体类型（`LlmRequest`或`EmbeddingRequest`），这些请求体内部又使用了更具体的`ChatContent`或`EmbeddingContent`。这形成了一个完整的、在编译时即可验证的类型安全链。
  *
  * 关联:
- * - 这是一个Retrofit接口，使用 @POST, @Body, @Header 等注解。
- * - 其实现由Retrofit在运行时动态生成。
- * - LlmRepository 会持有该接口的实例，并发起网络调用。
+ * -  其具体实现由Retrofit在运行时动态生成。
+ * -  `NetworkModule`会提供这个接口的单例。
+ * -  `LlmRepository`会注入并调用此接口中定义的方法来执行网络请求。
  */
-
 interface LlmApiService {
 
-    @POST("v1beta/models/gemini-pro:generateContent")
+    /** 获取对话回复 */
+    @POST("v1beta/models/gemini-2.5-flash:generateContent")
     suspend fun getChatResponse(
         @Query("key") apiKey: String,
-        @Body request: LlmRequest
+        @Body request: LlmRequest // Retrofit会使用LlmRequest(内含List<ChatContent>)来构建请求
     ): LlmResponse
 
-    @POST("v1beta/models/gemini-pro:generateContent")
+    /** 获取文本摘要 */
+    @POST("v1beta/models/gemini-2.5-flash:generateContent")
     suspend fun getSummary(
         @Query("key") apiKey: String,
-        @Body request: LlmRequest
+        @Body request: LlmRequest // 同上
     ): LlmResponse
 
+    /** 获取文本向量 */
     @POST("v1beta/models/embedding-001:embedContent")
     suspend fun getEmbedding(
         @Query("key") apiKey: String,
-        @Body request: EmbeddingRequest
+        @Body request: EmbeddingRequest // Retrofit会使用EmbeddingRequest(内含EmbeddingContent)来构建请求
     ): EmbeddingResponse
 }

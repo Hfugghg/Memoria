@@ -42,7 +42,7 @@ object AppModule {
     @Singleton
     fun provideLlmRepository(llmApiService: LlmApiService): LlmRepository {
         //  请在这里提供您的API密钥
-        return LlmRepository(llmApiService, "YOUR_API_KEY")
+        return LlmRepository(llmApiService, "Apikey")
     }
 
     @Provides
