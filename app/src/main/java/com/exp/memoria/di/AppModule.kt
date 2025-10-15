@@ -1,16 +1,24 @@
 package com.exp.memoria.di
 
+import android.content.Context
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.PreferenceDataStoreFactory
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.preferencesDataStoreFile
 import com.exp.memoria.data.local.dao.CondensedMemoryDao
 import com.exp.memoria.data.local.dao.RawMemoryDao
 import com.exp.memoria.data.remote.api.LlmApiService
 import com.exp.memoria.data.repository.LlmRepository
 import com.exp.memoria.data.repository.MemoryRepository
 import com.exp.memoria.data.repository.MemoryRepositoryImpl
+import com.exp.memoria.data.repository.SettingsRepository
+import com.exp.memoria.data.repository.SettingsRepositoryImpl
 import com.exp.memoria.domain.usecase.GetChatResponseUseCase
 import com.exp.memoria.domain.usecase.ProcessMemoryUseCase
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
+import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
 
@@ -34,15 +42,31 @@ object AppModule {
 
     @Provides
     @Singleton
+    fun provideDataStore(@ApplicationContext context: Context): DataStore<Preferences> {
+        return PreferenceDataStoreFactory.create {
+            context.preferencesDataStoreFile("settings")
+        }
+    }
+
+    @Provides
+    @Singleton
+    fun provideSettingsRepository(dataStore: DataStore<Preferences>): SettingsRepository {
+        return SettingsRepositoryImpl(dataStore)
+    }
+
+    @Provides
+    @Singleton
     fun provideMemoryRepository(rawMemoryDao: RawMemoryDao, condensedMemoryDao: CondensedMemoryDao): MemoryRepository {
         return MemoryRepositoryImpl(rawMemoryDao, condensedMemoryDao)
     }
 
     @Provides
     @Singleton
-    fun provideLlmRepository(llmApiService: LlmApiService): LlmRepository {
-        //  请在这里提供您的API密钥
-        return LlmRepository(llmApiService, "apikey")
+    fun provideLlmRepository(
+        llmApiService: LlmApiService,
+        settingsRepository: SettingsRepository
+    ): LlmRepository {
+        return LlmRepository(llmApiService, settingsRepository)
     }
 
     @Provides

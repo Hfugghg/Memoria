@@ -1,18 +1,17 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
-//    alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.hilt)
     alias(libs.plugins.ksp)
     alias(libs.plugins.kotlin.serialization)
 }
 
 android {
-    namespace = "com.exp.memoria" // <-- 确保这个包名是你自己的
+    namespace = "com.exp.memoria"
     compileSdk = 34 // 注意：这里用的是 '=' 赋值，并且版本号是有效的 34
 
     defaultConfig {
-        applicationId = "com.exp.memoria" // <-- 确保这个ID是你自己的
+        applicationId = "com.exp.memoria"
         minSdk = 24
         targetSdk = 34 // 注意：这里也改成了有效的版本号 34
         versionCode = 1
@@ -105,4 +104,8 @@ dependencies {
 
     // Retrofit 的 Kotlinx Serialization 转换器
     implementation("com.jakewharton.retrofit:retrofit2-kotlinx-serialization-converter:1.0.0")
+
+    // DataStore
+    implementation("androidx.datastore:datastore-preferences:1.1.0-beta01")
+    implementation("androidx.datastore:datastore-core:1.1.0-beta01")
 }
