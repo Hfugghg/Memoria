@@ -46,9 +46,9 @@ import androidx.room.PrimaryKey
 )
 data class CondensedMemory(
     @PrimaryKey(autoGenerate = true)
-    val id: Int = 0, // [cite: 62]
+    val id: Long = 0, // [cite: 62]
 @ColumnInfo(name = "raw_memory_id", index = true)
-    val raw_memory_id: Int, // [cite: 63]
+    val raw_memory_id: Long, // [cite: 63]
     val summary_text: String, // [cite: 64]
     val vector_int8: ByteArray?, // [cite: 66]
     val status: String, // [cite: 67]
@@ -75,8 +75,8 @@ data class CondensedMemory(
     }
 
     override fun hashCode(): Int {
-        var result = id
-        result = 31 * result + raw_memory_id
+        var result = id.hashCode()
+        result = 31 * result + raw_memory_id.hashCode()
         result = 31 * result + summary_text.hashCode()
         result = 31 * result + (vector_int8?.contentHashCode() ?: 0)
         result = 31 * result + status.hashCode()

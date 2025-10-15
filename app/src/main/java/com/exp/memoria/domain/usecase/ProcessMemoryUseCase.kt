@@ -1,5 +1,8 @@
 package com.exp.memoria.domain.usecase
 
+import com.exp.memoria.data.repository.LlmRepository
+import com.exp.memoria.data.repository.MemoryRepository
+import javax.inject.Inject
 
 /**
  * [处理记忆的业务用例 (Use Case)]
@@ -24,5 +27,21 @@ package com.exp.memoria.domain.usecase
  * 4. **向量量化**: 将 float32 向量转换为 int8 向量以节省空间并加速计算 [cite: 29, 47]。
  * 5. **更新数据库**: 调用 MemoryRepository.updateProcessedMemory(...)，将生成的摘要、量化向量存入数据库，并更新该记忆的状态为 "INDEXED" [cite: 67]。
  */
-class ProcessMemoryUseCase {
+class ProcessMemoryUseCase @Inject constructor(
+    private val memoryRepository: MemoryRepository,
+    private val llmRepository: LlmRepository
+) {
+    // 使用Long类型的ID来调用此用例
+    suspend operator fun invoke(memoryId: Long) {
+        // 根据ID获取原始记忆，如果找不到则直接返回
+        val memory = memoryRepository.getMemoryById(memoryId) ?: return
+
+        // 将用户问题和LLM的回答拼接起来，为其生成摘要
+        val summary = llmRepository.getSummary(memory.user_query + "\n" + memory.llm_response)
+        // 为生成的摘要创建向量嵌入
+        val embedding = llmRepository.getEmbedding(summary)
+
+        // 将处理好的摘要和向量更新到数据库
+        memoryRepository.updateProcessedMemory(memoryId, summary, embedding)
+    }
 }

@@ -1,21 +1,20 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
-    alias(libs.plugins.kotlin.compose)
+//    alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.hilt)
     alias(libs.plugins.ksp)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 android {
-    namespace = "com.exp.memoria"
-    compileSdk {
-        version = release(36)
-    }
+    namespace = "com.exp.memoria" // <-- 确保这个包名是你自己的
+    compileSdk = 34 // 注意：这里用的是 '=' 赋值，并且版本号是有效的 34
 
     defaultConfig {
-        applicationId = "com.exp.memoria"
+        applicationId = "com.exp.memoria" // <-- 确保这个ID是你自己的
         minSdk = 24
-        targetSdk = 36
+        targetSdk = 34 // 注意：这里也改成了有效的版本号 34
         versionCode = 1
         versionName = "1.0"
 
@@ -31,15 +30,28 @@ android {
             )
         }
     }
+
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
+
     kotlinOptions {
-        jvmTarget = "11"
+        jvmTarget = "17"
     }
+
     buildFeatures {
         compose = true
+    }
+
+    composeOptions {
+        kotlinCompilerExtensionVersion = "1.5.8" // 这个版本匹配 Kotlin 1.9.22
+    }
+
+    packaging { // 这一段最好也加上，可以避免一些常见的打包问题
+        resources {
+            excludes += "/META-INF/{AL2.0,LGPL2.1}"
+        }
     }
 }
 
@@ -60,14 +72,16 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
 
-
     // Hilt (依赖注入)
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
+    implementation("androidx.hilt:hilt-work:1.2.0")
+    ksp("androidx.hilt:hilt-compiler:1.2.0")
     implementation("androidx.hilt:hilt-navigation-compose:1.2.0")
 
     // Room (数据库)
     implementation("androidx.room:room-runtime:2.6.1")
+    implementation("androidx.room:room-common:2.6.1") // 为解决FTS5注解找不到的问题，显式添加此依赖
     ksp("androidx.room:room-compiler:2.6.1") // 使用 ksp 替代 kapt 来处理 Room
     implementation("androidx.room:room-ktx:2.6.1")
 
@@ -80,7 +94,15 @@ dependencies {
     // WorkManager (用于后台任务)
     implementation("androidx.work:work-runtime-ktx:2.9.0")
 
-    // Retrofit (用于网络请求, 暂时作为占位符)
+    // Retrofit (网络请求)
     implementation("com.squareup.retrofit2:retrofit:2.9.0")
-    implementation("com.squareup.retrofit2:converter-gson:2.9.0") // 或 kotlinx.serialization
+
+    // OkHttp - Retrofit 的底层依赖，解决 "Unresolved reference 'okhttp3'" 问题
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+
+    // Kotlinx Serialization 核心库
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.0")
+
+    // Retrofit 的 Kotlinx Serialization 转换器
+    implementation("com.jakewharton.retrofit:retrofit2-kotlinx-serialization-converter:1.0.0")
 }

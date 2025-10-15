@@ -30,7 +30,10 @@ import com.exp.memoria.data.local.entity.RawMemory
 @Dao
 interface RawMemoryDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insert(rawMemory: RawMemory)
+    suspend fun insert(rawMemory: RawMemory): Long
+
+    @Query("SELECT * FROM raw_memory WHERE id = :id")
+    suspend fun getById(id: Long): RawMemory?
 
     // 目前是占位函数
     @Query("SELECT * FROM raw_memory ORDER BY timestamp DESC LIMIT 10")

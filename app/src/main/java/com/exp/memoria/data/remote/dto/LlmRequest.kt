@@ -1,5 +1,6 @@
 package com.exp.memoria.data.remote.dto
 
+import kotlinx.serialization.Serializable
 
 /**
  * [数据传输对象 (DTO)]
@@ -14,5 +15,8 @@ package com.exp.memoria.data.remote.dto
  * - 这些类被用于 LlmApiService 接口方法的参数和返回值类型。
  * - LlmRepository 在调用API前后会创建或接收这些类的实例。
  */
-class LlmRequest {
-}
+
+@Serializable
+data class LlmRequest(
+    val contents: List<Content>
+)

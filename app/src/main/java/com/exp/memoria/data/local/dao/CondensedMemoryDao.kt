@@ -1,6 +1,10 @@
 package com.exp.memoria.data.local.dao
 
+import androidx.room.ColumnInfo
 import androidx.room.Dao
+import androidx.room.Insert
+import androidx.room.Query
+import com.exp.memoria.data.local.entity.CondensedMemory
 
 /**
  * [浓缩记忆数据访问对象 (DAO)]
@@ -33,5 +37,48 @@ import androidx.room.Dao
 
 @Dao
 interface CondensedMemoryDao {
-    // 稍后会添加函数
+    @Insert
+    suspend fun insert(condensedMemory: CondensedMemory): Long
+
+    @Query("UPDATE condensed_memory SET summary_text = :summary, vector_int8 = :vector, status = 'INDEXED' WHERE raw_memory_id = :id")
+    suspend fun updateProcessedMemory(id: Long, summary: String, vector: ByteArray)
+
+    @Query("SELECT * FROM condensed_memory WHERE status = 'NEW'")
+    suspend fun getUnprocessedMemories(): List<CondensedMemory>
+
+    @Query("SELECT T.raw_memory_id FROM condensed_memory AS T JOIN condensed_memory_fts AS F ON T.id = F.rowid WHERE F.summary_text MATCH :query")
+    suspend fun searchFtsIndex(query: String): List<Long>
+
+    @Query("SELECT raw_memory_id, vector_int8 FROM condensed_memory WHERE raw_memory_id IN (:ids)")
+    suspend fun getVectorsByIds(ids: List<Long>): List<MemoryVector>
+}
+
+data class MemoryVector(
+    @ColumnInfo(name = "raw_memory_id") // 这里的名字必须和查询语句中的列名完全一致
+    val rawMemoryId: Long,
+
+    @ColumnInfo(name = "vector_int8") // 这里的名字必须和查询语句中的列名完全一致
+    val vector: ByteArray?
+) {
+    // 同样，因为包含 ByteArray，最好重写 equals 和 hashCode
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (javaClass != other?.javaClass) return false
+
+        other as MemoryVector
+
+        if (rawMemoryId != other.rawMemoryId) return false
+        if (vector != null) {
+            if (other.vector == null) return false
+            if (!vector.contentEquals(other.vector)) return false
+        } else if (other.vector != null) return false
+
+        return true
+    }
+
+    override fun hashCode(): Int {
+        var result = rawMemoryId.hashCode()
+        result = 31 * result + (vector?.contentHashCode() ?: 0)
+        return result
+    }
 }

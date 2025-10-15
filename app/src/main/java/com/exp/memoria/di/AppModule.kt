@@ -1,8 +1,13 @@
 package com.exp.memoria.di
 
+import com.exp.memoria.data.local.dao.CondensedMemoryDao
 import com.exp.memoria.data.local.dao.RawMemoryDao
+import com.exp.memoria.data.remote.api.LlmApiService
+import com.exp.memoria.data.repository.LlmRepository
 import com.exp.memoria.data.repository.MemoryRepository
 import com.exp.memoria.data.repository.MemoryRepositoryImpl
+import com.exp.memoria.domain.usecase.GetChatResponseUseCase
+import com.exp.memoria.domain.usecase.ProcessMemoryUseCase
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -29,7 +34,24 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideMemoryRepository(rawMemoryDao: RawMemoryDao): MemoryRepository {
-        return MemoryRepositoryImpl(rawMemoryDao)
+    fun provideMemoryRepository(rawMemoryDao: RawMemoryDao, condensedMemoryDao: CondensedMemoryDao): MemoryRepository {
+        return MemoryRepositoryImpl(rawMemoryDao, condensedMemoryDao)
+    }
+
+    @Provides
+    @Singleton
+    fun provideLlmRepository(llmApiService: LlmApiService): LlmRepository {
+        //  请在这里提供您的API密钥
+        return LlmRepository(llmApiService, "YOUR_API_KEY")
+    }
+
+    @Provides
+    fun provideGetChatResponseUseCase(memoryRepository: MemoryRepository, llmRepository: LlmRepository): GetChatResponseUseCase {
+        return GetChatResponseUseCase(memoryRepository, llmRepository)
+    }
+
+    @Provides
+    fun provideProcessMemoryUseCase(memoryRepository: MemoryRepository, llmRepository: LlmRepository): ProcessMemoryUseCase {
+        return ProcessMemoryUseCase(memoryRepository, llmRepository)
     }
 }

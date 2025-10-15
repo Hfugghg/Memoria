@@ -3,6 +3,7 @@ package com.exp.memoria.di
 import android.content.Context
 import androidx.room.Room
 import com.exp.memoria.data.local.MemoriaDatabase
+import com.exp.memoria.data.local.dao.CondensedMemoryDao
 import com.exp.memoria.data.local.dao.RawMemoryDao
 import dagger.Module
 import dagger.Provides
@@ -41,11 +42,17 @@ object DatabaseModule {
             context,
             MemoriaDatabase::class.java,
             "memoria_database"
-        ).build()
+        ).addCallback(MemoriaDatabase.FTS_TABLE_CALLBACK)
+            .build()
     }
 
     @Provides
     fun provideRawMemoryDao(database: MemoriaDatabase): RawMemoryDao {
         return database.rawMemoryDao()
+    }
+
+    @Provides
+    fun provideCondensedMemoryDao(database: MemoriaDatabase): CondensedMemoryDao {
+        return database.condensedMemoryDao()
     }
 }

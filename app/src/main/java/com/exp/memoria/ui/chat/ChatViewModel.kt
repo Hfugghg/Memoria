@@ -1,7 +1,13 @@
 package com.exp.memoria.ui.chat
 
+import android.app.Application
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkManager
+import androidx.work.workDataOf
+import com.exp.memoria.core.workers.MemoryProcessingWorker
+import com.exp.memoria.data.repository.MemoryRepository
 import com.exp.memoria.domain.usecase.GetChatResponseUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -40,7 +46,9 @@ import javax.inject.Inject
 
 @HiltViewModel
 class ChatViewModel @Inject constructor(
-    private val getChatResponseUseCase: GetChatResponseUseCase
+    private val getChatResponseUseCase: GetChatResponseUseCase,
+    private val memoryRepository: MemoryRepository,
+    private val application: Application
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ChatState())
@@ -59,12 +67,37 @@ class ChatViewModel @Inject constructor(
 
         // 启动协程以获取 AI 响应
         viewModelScope.launch {
-            val response = getChatResponseUseCase(query)
-            _uiState.update { currentState ->
-                currentState.copy(
-                    messages = currentState.messages + ChatMessage(text = response, isFromUser = false),
-                    isLoading = false
-                )
+            try {
+                val response = getChatResponseUseCase(query)
+
+                // 保存到数据库
+                val memoryId = memoryRepository.saveNewMemory(query, response)
+
+                // 成功后更新UI
+                _uiState.update { currentState ->
+                    currentState.copy(
+                        messages = currentState.messages + ChatMessage(text = response, isFromUser = false),
+                        isLoading = false
+                    )
+                }
+
+                // 启动后台任务
+                val workRequest = OneTimeWorkRequestBuilder<MemoryProcessingWorker>()
+                    .setInputData(workDataOf(MemoryProcessingWorker.KEY_MEMORY_ID to memoryId))
+                    .build()
+                WorkManager.getInstance(application).enqueue(workRequest)
+
+            } catch (e: Exception) {
+                // 捕获所有异常，包括 HttpException
+                // 在这里处理错误，例如显示一条错误消息
+                _uiState.update { currentState ->
+                    currentState.copy(
+                        messages = currentState.messages + ChatMessage(text = "出错了，请重试", isFromUser = false),
+                        isLoading = false
+                    )
+                }
+                // 可以在 logcat 中打印错误，方便调试
+                e.printStackTrace()
             }
         }
     }

@@ -1,5 +1,6 @@
 package com.exp.memoria.domain.usecase
 
+import com.exp.memoria.data.repository.LlmRepository
 import com.exp.memoria.data.repository.MemoryRepository
 import javax.inject.Inject
 
@@ -31,9 +32,12 @@ import javax.inject.Inject
  */
 
 class GetChatResponseUseCase @Inject constructor(
-    private val repository: MemoryRepository
+    private val memoryRepository: MemoryRepository, // 注入记忆仓库
+    private val llmRepository: LlmRepository // 注入LLM仓库
 ) {
     suspend operator fun invoke(query: String): String {
-        return repository.getChatResponse(query)
+        //  这里我将暂时直接调用LLM，而不实现完整的RAG流程
+        //  在未来的开发中，这里将实现完整的“热记忆”+“冷记忆”+“查询”的上下文组装逻辑
+        return llmRepository.getChatResponse(query)
     }
 }

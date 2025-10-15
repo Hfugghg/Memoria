@@ -1,5 +1,13 @@
 package com.exp.memoria.core.workers
 
+import android.content.Context
+import androidx.hilt.work.HiltWorker
+import androidx.work.CoroutineWorker
+import androidx.work.WorkerParameters
+import com.exp.memoria.domain.usecase.ProcessMemoryUseCase
+import dagger.assisted.Assisted
+import dagger.assisted.AssistedInject
+
 /**
  * [后台记忆处理工作器]
  *
@@ -26,5 +34,32 @@ package com.exp.memoria.core.workers
  * - 在ViewModel中构建WorkRequest时，可以设置Constraints，如 `setRequiredNetworkType`, `setRequiresCharging(true)` 等 [cite: 46]。
  */
 
-class MemoryProcessingWorker {
+@HiltWorker
+class MemoryProcessingWorker @AssistedInject constructor(
+    @Assisted appContext: Context,
+    @Assisted workerParams: WorkerParameters,
+    private val processMemoryUseCase: ProcessMemoryUseCase
+) : CoroutineWorker(appContext, workerParams) {
+
+    override suspend fun doWork(): Result {
+        // 从输入数据中获取Long类型的memoryId，如果不存在则任务失败
+        val memoryId = inputData.getLong(KEY_MEMORY_ID, -1)
+        if (memoryId == -1L) {
+            return Result.failure()
+        }
+
+        return try {
+            // 调用用例处理该记忆
+            processMemoryUseCase(memoryId)
+            // 任务成功
+            Result.success()
+        } catch (e: Exception) {
+            // 如果发生异常，任务失败
+            Result.failure()
+        }
+    }
+
+    companion object {
+        const val KEY_MEMORY_ID = "KEY_MEMORY_ID"
+    }
 }

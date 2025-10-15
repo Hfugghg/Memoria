@@ -1,5 +1,13 @@
 package com.exp.memoria.data.remote.api
 
+import com.exp.memoria.data.remote.dto.EmbeddingRequest
+import com.exp.memoria.data.remote.dto.EmbeddingResponse
+import com.exp.memoria.data.remote.dto.LlmRequest
+import com.exp.memoria.data.remote.dto.LlmResponse
+import retrofit2.http.Body
+import retrofit2.http.POST
+import retrofit2.http.Query
+
 /**
  * [LLM网络服务接口]
  *
@@ -15,5 +23,23 @@ package com.exp.memoria.data.remote.api
  * - LlmRepository 会持有该接口的实例，并发起网络调用。
  */
 
-class LlmApiService {
+interface LlmApiService {
+
+    @POST("v1beta/models/gemini-pro:generateContent")
+    suspend fun getChatResponse(
+        @Query("key") apiKey: String,
+        @Body request: LlmRequest
+    ): LlmResponse
+
+    @POST("v1beta/models/gemini-pro:generateContent")
+    suspend fun getSummary(
+        @Query("key") apiKey: String,
+        @Body request: LlmRequest
+    ): LlmResponse
+
+    @POST("v1beta/models/embedding-001:embedContent")
+    suspend fun getEmbedding(
+        @Query("key") apiKey: String,
+        @Body request: EmbeddingRequest
+    ): EmbeddingResponse
 }

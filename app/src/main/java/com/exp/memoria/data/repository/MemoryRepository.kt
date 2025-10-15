@@ -1,8 +1,11 @@
 package com.exp.memoria.data.repository
 
+import com.exp.memoria.data.local.dao.CondensedMemoryDao
 import com.exp.memoria.data.local.dao.RawMemoryDao
+import com.exp.memoria.data.local.entity.CondensedMemory
 import com.exp.memoria.data.local.entity.RawMemory
-import kotlinx.coroutines.delay
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 import javax.inject.Inject
 
 /**
@@ -23,30 +26,56 @@ import javax.inject.Inject
  * - GetChatResponseUseCase 和 ProcessMemoryUseCase 会注入并使用这个Repository来管理记忆数据。
  */
 
-// 用于可测试性的接口
 interface MemoryRepository {
-    suspend fun getChatResponse(query: String): String
+    // 保存一条新的记忆，并返回其在数据库中的`Long`类型ID。
+    suspend fun saveNewMemory(query: String, response: String): Long
+    // 根据`Long`类型的ID获取一条原始记忆。
+    suspend fun getMemoryById(id: Long): RawMemory?
+    // 根据`Long`类型的ID更新一条已处理的记忆。
+    suspend fun updateProcessedMemory(id: Long, summary: String, vector: List<Float>)
 }
 
-// 实现
 class MemoryRepositoryImpl @Inject constructor(
-    private val rawMemoryDao: RawMemoryDao
+    private val rawMemoryDao: RawMemoryDao,
+    private val condensedMemoryDao: CondensedMemoryDao
 ) : MemoryRepository {
 
-    override suspend fun getChatResponse(query: String): String {
-        // 模拟网络延迟
-        delay(1500)
-
-        // 目前，返回一个硬编码的响应。
-        // 在实际的应用中，这将涉及RAG和LLM调用。
+    override suspend fun saveNewMemory(query: String, response: String): Long {
         val newMemory = RawMemory(
             user_query = query,
-            llm_response = "你好，我是Memoria。这是来自模拟仓库的回答。",
+            llm_response = response,
             timestamp = System.currentTimeMillis()
         )
-        // 模拟保存到数据库
-        // rawMemoryDao.insert(newMemory)
+        // 插入原始记忆并获取其Long类型的ID
+        val rawMemoryId = rawMemoryDao.insert(newMemory)
 
-        return newMemory.llm_response
+        val condensedMemory = CondensedMemory(
+            raw_memory_id = rawMemoryId,
+            summary_text = "", // 初始摘要为空
+            vector_int8 = null, // 初始向量为空
+            status = "NEW", // 初始状态为“新”
+            timestamp = System.currentTimeMillis()
+        )
+        // 插入对应的浓缩记忆记录
+        condensedMemoryDao.insert(condensedMemory)
+
+        return rawMemoryId
+    }
+
+    override suspend fun getMemoryById(id: Long): RawMemory? {
+        // 此处ID类型已匹配DAO层，无需转换
+        return rawMemoryDao.getById(id)
+    }
+
+    override suspend fun updateProcessedMemory(id: Long, summary: String, vector: List<Float>) {
+        // 将Float列表转换为ByteArray以便存入数据库
+        val byteBuffer = ByteBuffer.allocate(vector.size * 4).order(ByteOrder.nativeOrder())
+        for (value in vector) {
+            byteBuffer.putFloat(value)
+        }
+        val byteArray = byteBuffer.array()
+
+        // 此处ID类型已匹配DAO层，无需转换
+        condensedMemoryDao.updateProcessedMemory(id, summary, byteArray)
     }
 }
