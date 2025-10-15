@@ -37,44 +37,53 @@ abstract class MemoriaDatabase : RoomDatabase() {
         val FTS_TABLE_CALLBACK = object : Callback() {
             override fun onCreate(db: SupportSQLiteDatabase) {
                 super.onCreate(db)
-                // 创建 FTS5 虚拟表
+                // 1. 创建 FTS5 虚拟表 (这部分是正确的)
                 db.execSQL(
                     """
-                    CREATE VIRTUAL TABLE IF NOT EXISTS condensed_memory_fts USING fts5(
-                        summary_text,
-                        content='condensed_memory',
-                        content_rowid='id'
-                    )
-                    """.trimIndent()
+                CREATE VIRTUAL TABLE IF NOT EXISTS condensed_memory_fts USING fts5(
+                    summary_text,
+                    content='condensed_memory',
+                    content_rowid='id'
                 )
-                // 创建触发器，在 condensed_memory 表发生变化时，同步更新 FTS 表
-                db.execSQL(
-                    """
-                    CREATE TRIGGER IF NOT EXISTS condensed_memory_after_insert
-                    AFTER INSERT ON condensed_memory
-                    BEGIN
-                        INSERT INTO condensed_memory_fts(rowid, summary_text) VALUES (new.id, new.summary_text);
-                    END
-                    """.trimIndent()
+                """.trimIndent()
                 )
+
+                // 2. 创建 INSERT 触发器 (这部分是正确的)
                 db.execSQL(
                     """
-                    CREATE TRIGGER IF NOT EXISTS condensed_memory_after_delete
-                    AFTER DELETE ON condensed_memory
-                    BEGIN
-                        INSERT INTO condensed_memory_fts(condensed_memory_fts, rowid, summary_text) VALUES ('delete', old.id, old.summary_text);
-                    END
-                    """.trimIndent()
+                CREATE TRIGGER IF NOT EXISTS condensed_memory_after_insert
+                AFTER INSERT ON condensed_memory
+                BEGIN
+                    INSERT INTO condensed_memory_fts(rowid, summary_text) 
+                    VALUES (new.id, new.summary_text);
+                END
+                """.trimIndent()
                 )
+
+                // 3. 创建 DELETE 触发器 (🔥 最终修正)
+                // 使用标准的 DELETE 语句，而不是特殊的 INSERT
                 db.execSQL(
                     """
-                    CREATE TRIGGER IF NOT EXISTS condensed_memory_after_update
-                    AFTER UPDATE ON condensed_memory
-                    BEGIN
-                        INSERT INTO condensed_memory_fts(condensed_memory_fts, rowid, summary_text) VALUES ('delete', old.id, old.summary_text);
-                        INSERT INTO condensed_memory_fts(rowid, summary_text) VALUES (new.id, new.summary_text);
-                    END
-                    """.trimIndent()
+                CREATE TRIGGER IF NOT EXISTS condensed_memory_after_delete
+                AFTER DELETE ON condensed_memory
+                BEGIN
+                    DELETE FROM condensed_memory_fts WHERE rowid = old.id;
+                END
+                """.trimIndent()
+                )
+
+                // 4. 创建 UPDATE 触发器 (🔥 最终修正)
+                // 逻辑分解为先删除旧索引，再插入新索引
+                db.execSQL(
+                    """
+                CREATE TRIGGER IF NOT EXISTS condensed_memory_after_update
+                AFTER UPDATE ON condensed_memory
+                BEGIN
+                    DELETE FROM condensed_memory_fts WHERE rowid = old.id;
+                    INSERT INTO condensed_memory_fts(rowid, summary_text) 
+                    VALUES (new.id, new.summary_text);
+                END
+                """.trimIndent()
                 )
             }
         }

@@ -17,6 +17,8 @@ import androidx.room.PrimaryKey
  * - 它不代表一个由 Room 直接管理的物理表。
  * - CondensedMemoryDao 中的 `searchFtsIndex` 方法将直接查询这个虚拟表。
  */
+
+// 以上注释存在问题，该项目可能无法使用FTS5注解
 @Entity(tableName = "condensed_memory_fts")
 // 修复KSP构建错误：FTS虚拟表实体必须包含一个名为'rowid'并作为主键的字段，用于与内容表的主键进行映射。
 data class FTSMemoryIndex(
