@@ -2,13 +2,14 @@ package com.exp.memoria.data.local.entity
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey
+import com.exp.memoria.data.Content
 
 /**
  * [原始记忆实体类]
  *
  * 职责:
- * 1. 定义 "RawMemory" 数据库表的结构 [cite: 52]。
- * 2. 字段需要与计划书中的数据模型完全对应：id, user_query, llm_response, timestamp [cite: 55, 56, 57, 58]。
+ * 1. 定义 "RawMemory" 数据库表的结构。
+ * 2. 字段需要与计划书中的数据模型完全对应：id, contents, timestamp。
  * 3. 使用 @Entity 注解将其标记为Room的表。
  * 4. 使用 @PrimaryKey, @ColumnInfo 等注解来配置表和字段的属性。
  *
@@ -20,8 +21,7 @@ import androidx.room.PrimaryKey
 @Entity(tableName = "raw_memory")
 data class RawMemory(
     @PrimaryKey(autoGenerate = true)
-    val id: Long = 0, // [cite: 55]
-    val user_query: String, // [cite: 56]
-    val llm_response: String, // [cite: 57]
-    val timestamp: Long // [cite: 58]
+    val id: Long = 0,
+    val contents: List<Content>,
+    val timestamp: Long
 )

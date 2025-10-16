@@ -1,5 +1,7 @@
 package com.exp.memoria.domain.usecase
 
+import com.exp.memoria.data.remote.dto.ChatContent
+import com.exp.memoria.data.remote.dto.Part
 import com.exp.memoria.data.repository.LlmRepository
 import com.exp.memoria.data.repository.MemoryRepository
 import javax.inject.Inject
@@ -10,12 +12,12 @@ import javax.inject.Inject
  * 职责:
  * 1. 封装完整的检索增强生成（RAG）核心业务流程 [cite: 18]。这是应用最核心的逻辑单元。
  * 2. 执行流程：
- * a. 接收用户当前的问题(Query)。
- * b. 调用 MemoryRepository 获取全部“热记忆” [cite: 32]。
- * c. 调用 MemoryRepository 根据用户问题从“冷记忆”库中检索最相关的内容 [cite: 33]。
- * d. 将“热记忆”、“检索出的冷记忆”和用户当前问题智能地组合成一个丰富的上下文(Context) [cite: 35]。
- * e. 调用 LlmRepository 将组合好的上下文发送给主LLM。
- * f. 返回最终生成的回答。
+ *    a. 接收用户当前的问题(Query)。
+ *    b. 调用 MemoryRepository 获取全部“热记忆” [cite: 32]。
+ *    c. 调用 MemoryRepository 根据用户问题从“冷记忆”库中检索最相关的内容 [cite: 33]。
+ *    d. 将“热记忆”、“检索出的冷记忆”和用户当前问题，构建成一个符合API要求的、包含完整对话历史的`ChatContent`对象列表 [cite: 35]。
+ *    e. 调用 LlmRepository 将组合好的上下文发送给主LLM。
+ *    f. 返回最终生成的回答。
  * 3. 确保整个流程在后台线程执行，避免阻塞UI [cite: 41]。
  *
  * 关联:
@@ -26,29 +28,42 @@ import javax.inject.Inject
  * 1. 接收用户当前的问题(Query)作为参数。
  * 2. **获取热记忆**: 调用 MemoryRepository 获取全部“热记忆” [cite: 32]。
  * 3. **检索冷记忆**: 调用 MemoryRepository.findRelevantColdMemories(query) 执行“FTS预过滤 + 向量精排”二级检索，找出最相关的历史记忆 [cite: 33]。
- * 4. **动态组装上下文**: 将“热记忆”、“检索出的冷记忆”和用户当前问题智能地组合成一个丰富的上下文Prompt [cite: 35]。
+ * 4. **构建对话历史**: 将从记忆库中获取的对话记录，结合用户当前问题，转换并组装成一个包含多轮对话的`ChatContent`对象列表，作为发送给LLM的上下文 [cite: 35]。
  * 5. **生成回答**: 调用 LlmRepository 将组合好的上下文发送给主LLM，并获取最终回答 [cite: 35]。
  * 6. 返回生成的回答给ViewModel。
  */
-
 class GetChatResponseUseCase @Inject constructor(
     private val memoryRepository: MemoryRepository, // 注入记忆仓库
     private val llmRepository: LlmRepository // 注入LLM仓库
 ) {
     suspend operator fun invoke(query: String): String {
         // 在未来的开发中，这里将实现完整的“热记忆”+“冷记忆”+“查询”的上下文组装逻辑
-        // 获取所有历史记忆
+
+        // 1. 获取所有原始记忆
         val allMemories = memoryRepository.getAllRawMemories()
 
-        // 拼接历史记忆和当前问题
-        val context = StringBuilder()
-        allMemories.forEach {
-            context.append("User: ").append(it.user_query).append("\n")
-            context.append("AI: ").append(it.llm_response).append("\n")
-        }
-        context.append("User: ".plus(query).plus("\n"))
+        // 2. 将原始记忆转换为符合API数据结构的 ChatContent 对象列表
+        //    - flatMap 将多层列表（每个Memory里有一个contents列表）拍平为单层列表
+        //    - mapNotNull 遍历每个 content，转换成 ChatContent，同时过滤掉不支持的类型（返回null的项）
+        val history = allMemories.flatMap { memory ->
+            memory.contents.mapNotNull { content ->
+                when (content) {
+                    // 处理用户消息
+                    is com.exp.memoria.data.Content.User ->
+                        ChatContent(role = "user", parts = content.parts.map { Part(text = (it as? com.exp.memoria.data.Part.Text)?.text ?: "") })
+                    // 处理AI模型消息
+                    is com.exp.memoria.data.Content.Model ->
+                        ChatContent(role = "model", parts = content.parts.map { Part(text = (it as? com.exp.memoria.data.Part.Text)?.text ?: "") })
+                    // 忽略其他不支持的 content 类型
+                    else -> null
+                }
+            }
+        }.toMutableList() // 转换为可变列表，以便添加当前查询
 
-        // 调用LLM并返回结果
-        return llmRepository.getChatResponse(context.toString())
+        // 3. 将用户当前的查询作为最新的一条“user”消息，添加到历史记录末尾
+        history.add(ChatContent(role = "user", parts = listOf(Part(text = query))))
+
+        // 4. 调用LLM仓库，传入构建好的完整对话历史以获取聊天响应
+        return llmRepository.getChatResponse(history)
     }
 }

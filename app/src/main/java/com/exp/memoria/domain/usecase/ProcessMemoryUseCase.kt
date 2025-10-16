@@ -1,5 +1,7 @@
 package com.exp.memoria.domain.usecase
 
+import com.exp.memoria.data.Content
+import com.exp.memoria.data.Part
 import com.exp.memoria.data.repository.LlmRepository
 import com.exp.memoria.data.repository.MemoryRepository
 import javax.inject.Inject
@@ -36,8 +38,18 @@ class ProcessMemoryUseCase @Inject constructor(
         // 根据ID获取原始记忆，如果找不到则直接返回
         val memory = memoryRepository.getMemoryById(memoryId) ?: return
 
-        // 将用户问题和LLM的回答拼接起来，为其生成摘要
-        val summary = llmRepository.getSummary(memory.user_query + "\n" + memory.llm_response)
+        // 构造一个用于生成摘要的字符串，其中包含用户和模型的对话历史
+        val dialogue = memory.contents.joinToString("\n") { content ->
+            // 根据内容的角色（用户或模型）设置前缀
+            val prefix = if (content is Content.User) "User: " else "AI: "
+            // 提取内容中的文本部分
+            val text = (content as? Content.User)?.parts?.firstOrNull()?.let { (it as? Part.Text)?.text } ?: ""
+            // 组合前缀和文本
+            prefix + text
+        }
+
+        // 为拼接好的对话生成摘要
+        val summary = llmRepository.getSummary(dialogue)
         // 为生成的摘要创建向量嵌入
         val embedding = llmRepository.getEmbedding(summary)
 
