@@ -18,7 +18,7 @@ import javax.inject.Singleton
  *1，封装所有与远程LLMAPI的交互。
  *2．提供一个高级接口，屏蔽网络请求、JSON解析和错误处理的复杂性。
  *3.提供方法:
- *-｀getChatResponse(context：String)｀：调用主LLM获取对话回复。
+ *-｀getChatResponse(history: List<ChatContent>)｀：调用主LLM获取对话回复。
  *getSummary(text:String)’：调用浓缩LLM获取摘要[cite:14，25]。
  *getEmbedding(text:String)’：获取文本的向量[cite:25]。
  *
@@ -40,14 +40,9 @@ class LlmRepository @Inject constructor(
         return settingsRepository.settingsFlow.first().apiKey
     }
 
-    suspend fun getChatResponse(context: String): String {
+    suspend fun getChatResponse(history: List<ChatContent>): String {
         val request = LlmRequest(
-            contents = listOf(
-                ChatContent(
-                    role = "user",
-                    parts = listOf(Part(text = context))
-                )
-            )
+            contents = history
         )
         Log.d("LlmRepository", "Chat Request: $request")
         val response = llmApiService.getChatResponse(getApiKey(), request)
@@ -60,7 +55,7 @@ class LlmRepository @Inject constructor(
             contents = listOf(
                 ChatContent(
                     role = "user",
-                    parts = listOf(Part(text = "请总结以下文本:\n$text"))
+                    parts = listOf(Part(text = "请总结以下文本:$text"))
                 )
             )
         )
