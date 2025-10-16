@@ -35,6 +35,9 @@ interface MemoryRepository {
     suspend fun updateProcessedMemory(id: Long, summary: String, vector: List<Float>)
     // 获取所有原始记忆
     suspend fun getAllRawMemories(): List<RawMemory>
+
+    // 获取分页的原始记忆
+    suspend fun getRawMemories(limit: Int, offset: Int): List<RawMemory>
 }
 
 class MemoryRepositoryImpl @Inject constructor(
@@ -83,5 +86,9 @@ class MemoryRepositoryImpl @Inject constructor(
 
     override suspend fun getAllRawMemories(): List<RawMemory> {
         return rawMemoryDao.getAll()
+    }
+
+    override suspend fun getRawMemories(limit: Int, offset: Int): List<RawMemory> {
+        return rawMemoryDao.getWithLimitOffset(limit, offset)
     }
 }

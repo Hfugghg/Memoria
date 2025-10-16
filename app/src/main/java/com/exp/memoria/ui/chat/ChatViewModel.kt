@@ -54,6 +54,32 @@ class ChatViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(ChatState())
     val uiState = _uiState.asStateFlow()
 
+    private var currentPage = 0
+    private val pageSize = 50
+
+    init {
+        loadMoreMessages()
+    }
+
+    fun loadMoreMessages() {
+        viewModelScope.launch {
+            // 从数据库获取的 memories 是按时间倒序的 (最新的在最前面)
+            val memories = memoryRepository.getRawMemories(pageSize, currentPage * pageSize)
+            // 在 flatMap 之前反转列表，这样我们处理的就是时间正序的列表 (最早的在最前面)
+            val chatMessages = memories.reversed().flatMap { memory ->
+                listOf(
+                    ChatMessage(text = memory.user_query, isFromUser = true),
+                    ChatMessage(text = memory.llm_response, isFromUser = false)
+                )
+            }
+            _uiState.update { currentState ->
+                // 将获取到的更旧的消息(chatMessages)加在当前消息列表(currentState.messages)的前面
+                currentState.copy(messages = chatMessages + currentState.messages)
+            }
+            currentPage++
+        }
+    }
+
     fun sendMessage(query: String) {
         if (query.isBlank()) return
 
