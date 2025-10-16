@@ -38,4 +38,7 @@ interface RawMemoryDao {
     // 目前是占位函数
     @Query("SELECT * FROM raw_memory ORDER BY timestamp DESC LIMIT 10")
     suspend fun getRecentMemories(): List<RawMemory>
+
+    @Query("SELECT * FROM raw_memory ORDER BY timestamp ASC")
+    suspend fun getAll(): List<RawMemory>
 }
