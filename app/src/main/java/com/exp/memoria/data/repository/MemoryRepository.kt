@@ -33,6 +33,8 @@ interface MemoryRepository {
     suspend fun getMemoryById(id: Long): RawMemory?
     // 根据`Long`类型的ID更新一条已处理的记忆。
     suspend fun updateProcessedMemory(id: Long, summary: String, vector: List<Float>)
+    // 获取所有原始记忆
+    suspend fun getAllRawMemories(): List<RawMemory>
 }
 
 class MemoryRepositoryImpl @Inject constructor(
@@ -77,5 +79,9 @@ class MemoryRepositoryImpl @Inject constructor(
 
         // 此处ID类型已匹配DAO层，无需转换
         condensedMemoryDao.updateProcessedMemory(id, summary, byteArray)
+    }
+
+    override suspend fun getAllRawMemories(): List<RawMemory> {
+        return rawMemoryDao.getAll()
     }
 }

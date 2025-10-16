@@ -36,8 +36,19 @@ class GetChatResponseUseCase @Inject constructor(
     private val llmRepository: LlmRepository // 注入LLM仓库
 ) {
     suspend operator fun invoke(query: String): String {
-        //  这里我将暂时直接调用LLM，而不实现完整的RAG流程
-        //  在未来的开发中，这里将实现完整的“热记忆”+“冷记忆”+“查询”的上下文组装逻辑
-        return llmRepository.getChatResponse(query)
+        // 在未来的开发中，这里将实现完整的“热记忆”+“冷记忆”+“查询”的上下文组装逻辑
+        // 获取所有历史记忆
+        val allMemories = memoryRepository.getAllRawMemories()
+
+        // 拼接历史记忆和当前问题
+        val context = StringBuilder()
+        allMemories.forEach {
+            context.append("User: ").append(it.user_query).append("\n")
+            context.append("AI: ").append(it.llm_response).append("\n")
+        }
+        context.append("User: ".plus(query).plus("\n"))
+
+        // 调用LLM并返回结果
+        return llmRepository.getChatResponse(context.toString())
     }
 }
