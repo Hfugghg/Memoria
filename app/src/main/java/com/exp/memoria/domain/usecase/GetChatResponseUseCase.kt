@@ -1,5 +1,7 @@
 package com.exp.memoria.domain.usecase
 
+import com.exp.memoria.data.Content
+import com.exp.memoria.data.Part
 import com.exp.memoria.data.repository.LlmRepository
 import com.exp.memoria.data.repository.MemoryRepository
 import javax.inject.Inject
@@ -42,13 +44,30 @@ class GetChatResponseUseCase @Inject constructor(
 
         // 拼接历史记忆和当前问题
         val context = StringBuilder()
-        allMemories.forEach {
-            context.append("User: ").append(it.user_query).append("\n")
-            context.append("AI: ").append(it.llm_response).append("\n")
-        }
-        context.append("User: ".plus(query).plus("\n"))
+        allMemories.forEach { memory ->
+            memory.contents.forEach { content ->
+                // 根据Content的类型（User或Model）确定角色和内容部分
+                val (role, parts) = when (content) {
+                    is Content.User -> "User" to content.parts
+                    is Content.Model -> "AI" to content.parts
+                    // 对于不支持的Content类型，我们将其角色设置为"Unknown"并且内容为空
+                    else -> "Unknown" to emptyList()
+                }
 
-        // 调用LLM并返回结果
+                // 从内容部分（parts）中提取文本。我们只关心第一个部分，并且如果它是文本的话。
+                // as? Part.Text 是一个安全的类型转换，如果转换失败则返回null
+                // ?.text 是安全调用，只有在转换成功时才访问text属性
+                // ?: "" 是elvis操作符，如果前面的表达式结果为null，则返回一个空字符串
+                val text = (parts.firstOrNull() as? Part.Text)?.text ?: ""
+                
+                // 将角色和文本追加到上下文中
+                context.append("$role: ").append(text).append("")
+            }
+        }
+        // 将用户当前的查询也追加到上下文中
+        context.append("User: ".plus(query).plus(""))
+
+        // 调用LLM仓库以获取聊天响应并返回结果
         return llmRepository.getChatResponse(context.toString())
     }
 }

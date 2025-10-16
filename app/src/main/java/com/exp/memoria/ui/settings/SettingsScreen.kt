@@ -19,9 +19,6 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -102,7 +99,16 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
             }
 
             // 可交互的安全设置
-            SafetySettingsSection()
+            SafetySettingsSection(
+                harassmentValue = settings.harassment,
+                onHarassmentChange = viewModel::onHarassmentChange,
+                hateSpeechValue = settings.hateSpeech,
+                onHateSpeechChange = viewModel::onHateSpeechChange,
+                sexuallyExplicitValue = settings.sexuallyExplicit,
+                onSexuallyExplicitChange = viewModel::onSexuallyExplicitChange,
+                dangerousContentValue = settings.dangerousContent,
+                onDangerousContentChange = viewModel::onDangerousContentChange
+            )
 
             Card(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
                 Column(modifier = Modifier.padding(16.dp)) {
@@ -119,13 +125,16 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
  * 允许用户分别为四个不同的安全类别调整滑块
  */
 @Composable
-fun SafetySettingsSection() {
-    // 使用 remember 为每个安全设置的滑块创建一个可变状态，用于模拟调整
-    var harassmentValue by remember { mutableStateOf(0.0f) }
-    var hateSpeechValue by remember { mutableStateOf(0.0f) }
-    var sexuallyExplicitValue by remember { mutableStateOf(0.0f) }
-    var dangerousContentValue by remember { mutableStateOf(0.0f) }
-
+fun SafetySettingsSection(
+    harassmentValue: Float,
+    onHarassmentChange: (Float) -> Unit,
+    hateSpeechValue: Float,
+    onHateSpeechChange: (Float) -> Unit,
+    sexuallyExplicitValue: Float,
+    onSexuallyExplicitChange: (Float) -> Unit,
+    dangerousContentValue: Float,
+    onDangerousContentChange: (Float) -> Unit
+) {
     // 安全设置卡片
     Card(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -133,16 +142,16 @@ fun SafetySettingsSection() {
             Spacer(modifier = Modifier.height(8.dp))
 
             // 骚扰内容设置
-            SettingSlider(label = "骚扰内容", value = harassmentValue, onValueChange = { harassmentValue = it })
+            SettingSlider(label = "骚扰内容", value = harassmentValue, onValueChange = onHarassmentChange)
 
             // 仇恨言论设置
-            SettingSlider(label = "仇恨言论", value = hateSpeechValue, onValueChange = { hateSpeechValue = it })
+            SettingSlider(label = "仇恨言论", value = hateSpeechValue, onValueChange = onHateSpeechChange)
 
             // 色情内容设置
-            SettingSlider(label = "色情内容", value = sexuallyExplicitValue, onValueChange = { sexuallyExplicitValue = it })
+            SettingSlider(label = "色情内容", value = sexuallyExplicitValue, onValueChange = onSexuallyExplicitChange)
 
             // 危险内容设置
-            SettingSlider(label = "危险内容", value = dangerousContentValue, onValueChange = { dangerousContentValue = it })
+            SettingSlider(label = "危险内容", value = dangerousContentValue, onValueChange = onDangerousContentChange)
         }
     }
 }

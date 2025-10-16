@@ -2,7 +2,9 @@ package com.exp.memoria.data.local
 
 import androidx.room.Database
 import androidx.room.RoomDatabase
+import androidx.room.TypeConverters
 import androidx.sqlite.db.SupportSQLiteDatabase
+import com.exp.memoria.data.local.converters.Converters
 import com.exp.memoria.data.local.dao.CondensedMemoryDao
 import com.exp.memoria.data.local.dao.RawMemoryDao
 import com.exp.memoria.data.local.entity.CondensedMemory
@@ -29,6 +31,7 @@ import com.exp.memoria.data.local.entity.RawMemory
     version = 1,
     exportSchema = false
 )
+@TypeConverters(Converters::class)
 abstract class MemoriaDatabase : RoomDatabase() {
     abstract fun rawMemoryDao(): RawMemoryDao
     abstract fun condensedMemoryDao(): CondensedMemoryDao

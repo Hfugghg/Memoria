@@ -1,5 +1,6 @@
 package com.exp.memoria.data.repository
 
+import android.util.Log
 import com.exp.memoria.data.remote.api.LlmApiService
 import com.exp.memoria.data.remote.dto.ChatContent
 import com.exp.memoria.data.remote.dto.EmbeddingContent
@@ -48,7 +49,9 @@ class LlmRepository @Inject constructor(
                 )
             )
         )
+        Log.d("LlmRepository", "Chat Request: $request")
         val response = llmApiService.getChatResponse(getApiKey(), request)
+        Log.d("LlmRepository", "Chat Response: $response")
         return response.candidates.firstOrNull()?.content?.parts?.firstOrNull()?.text ?: "抱歉，无法获取回复。"
     }
 
@@ -61,7 +64,9 @@ class LlmRepository @Inject constructor(
                 )
             )
         )
+        Log.d("LlmRepository", "Summary Request: $request")
         val response = llmApiService.getSummary(getApiKey(), request)
+        Log.d("LlmRepository", "Summary Response: $response")
         return response.candidates.firstOrNull()?.content?.parts?.firstOrNull()?.text ?: "无法生成摘要。"
     }
 
@@ -71,7 +76,9 @@ class LlmRepository @Inject constructor(
                 parts = listOf(Part(text = text))
             )
         )
+        Log.d("LlmRepository", "Embedding Request: $request")
         val response = llmApiService.getEmbedding(getApiKey(), request)
+        Log.d("LlmRepository", "Embedding Response: $response")
         return response.embedding.values
     }
 }

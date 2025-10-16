@@ -7,6 +7,8 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.workDataOf
 import com.exp.memoria.core.workers.MemoryProcessingWorker
+import com.exp.memoria.data.Content
+import com.exp.memoria.data.Part
 import com.exp.memoria.data.repository.MemoryRepository
 import com.exp.memoria.domain.usecase.GetChatResponseUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -67,10 +69,24 @@ class ChatViewModel @Inject constructor(
             val memories = memoryRepository.getRawMemories(pageSize, currentPage * pageSize)
             // 在 flatMap 之前反转列表，这样我们处理的就是时间正序的列表 (最早的在最前面)
             val chatMessages = memories.reversed().flatMap { memory ->
-                listOf(
-                    ChatMessage(text = memory.user_query, isFromUser = true),
-                    ChatMessage(text = memory.llm_response, isFromUser = false)
-                )
+                // 从 memory.contents (这是一个包含 Content.User 和 Content.Model 的列表) 中提取聊天消息
+                memory.contents.mapNotNull { content ->
+                    // 根据 content 的具体类型（User 或 Model）来创建 ChatMessage
+                    when (content) {
+                        is Content.User -> {
+                            // 从 User content 的 parts 中提取文本
+                            val userText = (content.parts.firstOrNull() as? Part.Text)?.text ?: ""
+                            ChatMessage(text = userText, isFromUser = true)
+                        }
+                        is Content.Model -> {
+                            // 从 Model content 的 parts 中提取文本
+                            val modelText = (content.parts.firstOrNull() as? Part.Text)?.text ?: ""
+                            ChatMessage(text = modelText, isFromUser = false)
+                        }
+                        // 如果 content 类型不是 User 或 Model，则返回 null，mapNotNull 会自动忽略它
+                        else -> null
+                    }
+                }
             }
             _uiState.update { currentState ->
                 // 将获取到的更旧的消息(chatMessages)加在当前消息列表(currentState.messages)的前面

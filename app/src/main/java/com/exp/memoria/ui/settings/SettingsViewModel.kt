@@ -49,4 +49,28 @@ class SettingsViewModel @Inject constructor(
             settingsRepository.updateUseLocalStorage(useLocalStorage)
         }
     }
+
+    fun onHarassmentChange(value: Float) {
+        viewModelScope.launch {
+            settingsRepository.updateHarassment(value)
+        }
+    }
+
+    fun onHateSpeechChange(value: Float) {
+        viewModelScope.launch {
+            settingsRepository.updateHateSpeech(value)
+        }
+    }
+
+    fun onSexuallyExplicitChange(value: Float) {
+        viewModelScope.launch {
+            settingsRepository.updateSexuallyExplicit(value)
+        }
+    }
+
+    fun onDangerousContentChange(value: Float) {
+        viewModelScope.launch {
+            settingsRepository.updateDangerousContent(value)
+        }
+    }
 }

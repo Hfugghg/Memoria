@@ -10,4 +10,8 @@ interface SettingsRepository {
     suspend fun updateTemperature(temperature: Float)
     suspend fun updateTopP(topP: Float)
     suspend fun updateUseLocalStorage(useLocalStorage: Boolean)
+    suspend fun updateHarassment(value: Float)
+    suspend fun updateHateSpeech(value: Float)
+    suspend fun updateSexuallyExplicit(value: Float)
+    suspend fun updateDangerousContent(value: Float)
 }
