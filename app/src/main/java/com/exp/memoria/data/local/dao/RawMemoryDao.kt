@@ -41,4 +41,7 @@ interface RawMemoryDao {
 
     @Query("SELECT * FROM raw_memory ORDER BY timestamp ASC")
     suspend fun getAll(): List<RawMemory>
+
+    @Query("SELECT * FROM raw_memory ORDER BY timestamp DESC LIMIT :limit OFFSET :offset")
+    suspend fun getWithLimitOffset(limit: Int, offset: Int): List<RawMemory>
 }
