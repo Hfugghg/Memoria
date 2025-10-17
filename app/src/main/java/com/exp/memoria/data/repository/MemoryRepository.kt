@@ -5,6 +5,7 @@ import com.exp.memoria.data.Part
 import com.exp.memoria.data.local.dao.CondensedMemoryDao
 import com.exp.memoria.data.local.dao.RawMemoryDao
 import com.exp.memoria.data.local.entity.CondensedMemory
+import com.exp.memoria.data.local.entity.ConversationInfo
 import com.exp.memoria.data.local.entity.RawMemory
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -22,22 +23,19 @@ import javax.inject.Inject
  *    - `updateProcessedMemory(...)`: 更新一个已处理的记忆。
  *    - `getAllRawMemories()`: 获取所有原始记忆。
  *    - `getRawMemories(...)`: 获取分页的原始记忆。
+ *    - `getConversations()`: 获取所有对话的列表。
  *
  * 关联:
  * - 它会注入 RawMemoryDao 和 CondensedMemoryDao。
  * - GetChatResponseUseCase 会注入并使用这个Repository来管理记忆数据。
  */
 interface MemoryRepository {
-    /** 保存一条新的记忆，并返回其在数据库中的ID。 */
-    suspend fun saveNewMemory(query: String, response: String): Long
-    /** 根据ID获取一条原始记忆。 */
+    suspend fun saveNewMemory(query: String, response: String, conversationId: String): Long
     suspend fun getMemoryById(id: Long): RawMemory?
-    /** 根据ID更新一条已处理的记忆。 */
     suspend fun updateProcessedMemory(id: Long, summary: String, vector: List<Float>)
-    /** 获取所有原始记忆。 */
     suspend fun getAllRawMemories(): List<RawMemory>
-    /** 获取分页的原始记忆。 */
-    suspend fun getRawMemories(limit: Int, offset: Int): List<RawMemory>
+    suspend fun getRawMemories(conversationId: String, limit: Int, offset: Int): List<RawMemory>
+    suspend fun getConversations(): List<ConversationInfo>
 }
 
 class MemoryRepositoryImpl @Inject constructor(
@@ -45,29 +43,26 @@ class MemoryRepositoryImpl @Inject constructor(
     private val condensedMemoryDao: CondensedMemoryDao
 ) : MemoryRepository {
 
-    override suspend fun saveNewMemory(query: String, response: String): Long {
-        // 创建结构化的内容列表
+    override suspend fun saveNewMemory(query: String, response: String, conversationId: String): Long {
         val newContents = listOf(
             Content.User(parts = listOf(Part.Text(query))),
             Content.Model(parts = listOf(Part.Text(response)))
         )
 
-        // 使用新结构创建RawMemory实体
         val newMemory = RawMemory(
+            conversationId = conversationId,
             contents = newContents,
             timestamp = System.currentTimeMillis()
         )
-        // 插入原始记忆并获取其ID
         val rawMemoryId = rawMemoryDao.insert(newMemory)
 
         val condensedMemory = CondensedMemory(
             raw_memory_id = rawMemoryId,
-            summary_text = "", // 初始摘要为空
-            vector_int8 = null, // 初始向量为空
-            status = "NEW", // 初始状态为“新”
+            summary_text = "",
+            vector_int8 = null,
+            status = "NEW",
             timestamp = System.currentTimeMillis()
         )
-        // 插入对应的浓缩记忆记录
         condensedMemoryDao.insert(condensedMemory)
 
         return rawMemoryId
@@ -78,7 +73,6 @@ class MemoryRepositoryImpl @Inject constructor(
     }
 
     override suspend fun updateProcessedMemory(id: Long, summary: String, vector: List<Float>) {
-        // 将Float列表转换为ByteArray以便存入数据库
         val byteBuffer = ByteBuffer.allocate(vector.size * 4).order(ByteOrder.nativeOrder())
         for (value in vector) {
             byteBuffer.putFloat(value)
@@ -92,7 +86,11 @@ class MemoryRepositoryImpl @Inject constructor(
         return rawMemoryDao.getAll()
     }
 
-    override suspend fun getRawMemories(limit: Int, offset: Int): List<RawMemory> {
-        return rawMemoryDao.getWithLimitOffset(limit, offset)
+    override suspend fun getRawMemories(conversationId: String, limit: Int, offset: Int): List<RawMemory> {
+        return rawMemoryDao.getWithLimitOffset(conversationId, limit, offset)
+    }
+
+    override suspend fun getConversations(): List<ConversationInfo> {
+        return rawMemoryDao.getConversations()
     }
 }

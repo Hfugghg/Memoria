@@ -8,6 +8,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.exp.memoria.ui.chat.ChatScreen
+import com.exp.memoria.ui.chat.ConversationHistoryScreen
 import com.exp.memoria.ui.settings.SettingsScreen
 import com.exp.memoria.ui.theme.MemoriaTheme
 import dagger.hilt.android.AndroidEntryPoint
@@ -33,6 +34,9 @@ fun MemoriaApp() {
         }
         composable("settings") {
             SettingsScreen()
+        }
+        composable("conversationHistory") {
+            ConversationHistoryScreen(navController = navController)
         }
     }
 }

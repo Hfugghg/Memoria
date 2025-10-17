@@ -22,6 +22,7 @@ import com.exp.memoria.data.Content
 data class RawMemory(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
+    val conversationId: String,
     val contents: List<Content>,
     val timestamp: Long
 )

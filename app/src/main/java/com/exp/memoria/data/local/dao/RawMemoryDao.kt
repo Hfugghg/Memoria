@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import com.exp.memoria.data.local.entity.ConversationInfo
 import com.exp.memoria.data.local.entity.RawMemory
 
 /**
@@ -26,7 +27,6 @@ import com.exp.memoria.data.local.entity.RawMemory
  * - @Query("SELECT * FROM RawMemory ORDER BY timestamp DESC LIMIT :limit")
  * fun getLatestMemories(limit: Int): List<RawMemory> // 获取最新的记忆作为热记忆。
  */
-
 @Dao
 interface RawMemoryDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
@@ -36,12 +36,18 @@ interface RawMemoryDao {
     suspend fun getById(id: Long): RawMemory?
 
     // 目前是占位函数
-    @Query("SELECT * FROM raw_memory ORDER BY timestamp DESC LIMIT 10")
-    suspend fun getRecentMemories(): List<RawMemory>
+    @Query("SELECT * FROM raw_memory WHERE conversationId = :conversationId ORDER BY timestamp DESC LIMIT 10")
+    suspend fun getRecentMemories(conversationId: String): List<RawMemory>
 
+    // 获取所有记忆用于 RAG 上下文
     @Query("SELECT * FROM raw_memory ORDER BY timestamp ASC")
     suspend fun getAll(): List<RawMemory>
 
-    @Query("SELECT * FROM raw_memory ORDER BY timestamp DESC LIMIT :limit OFFSET :offset")
-    suspend fun getWithLimitOffset(limit: Int, offset: Int): List<RawMemory>
+    // 获取特定对话的分页记忆
+    @Query("SELECT * FROM raw_memory WHERE conversationId = :conversationId ORDER BY timestamp DESC LIMIT :limit OFFSET :offset")
+    suspend fun getWithLimitOffset(conversationId: String, limit: Int, offset: Int): List<RawMemory>
+
+    // 获取所有对话的列表，按最新消息排序
+    @Query("SELECT conversationId, MAX(timestamp) as lastTimestamp FROM raw_memory GROUP BY conversationId ORDER BY lastTimestamp DESC")
+    suspend fun getConversations(): List<ConversationInfo>
 }

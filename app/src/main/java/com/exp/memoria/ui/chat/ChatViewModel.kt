@@ -1,6 +1,7 @@
 package com.exp.memoria.ui.chat
 
 import android.app.Application
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.work.OneTimeWorkRequestBuilder
@@ -16,10 +17,11 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.util.UUID
 import javax.inject.Inject
 
 /**
- * [聊天界面的ViewModel]
+ * [ChatViewModel]
  *
  * 职责:
  * 1. 作为UI(ChatScreen)和数据/业务逻辑层(Use Cases, Repositories)之间的桥梁，遵循MVVM架构 [cite: 77]。
@@ -50,8 +52,12 @@ import javax.inject.Inject
 class ChatViewModel @Inject constructor(
     private val getChatResponseUseCase: GetChatResponseUseCase,
     private val memoryRepository: MemoryRepository,
-    private val application: Application
+    private val application: Application,
+    savedStateHandle: SavedStateHandle
 ) : ViewModel() {
+
+    // TODO: conversationId 将用于区分不同的对话。
+    private val conversationId: String = savedStateHandle.get<String>("conversationId") ?: UUID.randomUUID().toString()
 
     private val _uiState = MutableStateFlow(ChatState())
     val uiState = _uiState.asStateFlow()
@@ -65,8 +71,9 @@ class ChatViewModel @Inject constructor(
 
     fun loadMoreMessages() {
         viewModelScope.launch {
+            // TODO: 根据 conversationId 加载特定对话的消息
             // 从数据库获取的 memories 是按时间倒序的 (最新的在最前面)
-            val memories = memoryRepository.getRawMemories(pageSize, currentPage * pageSize)
+            val memories = memoryRepository.getRawMemories(conversationId, pageSize, currentPage * pageSize)
             // 在 flatMap 之前反转列表，这样我们处理的就是时间正序的列表 (最早的在最前面)
             val chatMessages = memories.reversed().flatMap { memory ->
                 // 从 memory.contents (这是一个包含 Content.User 和 Content.Model 的列表) 中提取聊天消息
@@ -110,10 +117,11 @@ class ChatViewModel @Inject constructor(
         // 启动协程以获取 AI 响应
         viewModelScope.launch {
             try {
-                val response = getChatResponseUseCase(query)
+                val response = getChatResponseUseCase.invoke(query)
 
+                // TODO: 保存消息时，需要将 conversationId 也保存到数据库中
                 // 保存到数据库
-                val memoryId = memoryRepository.saveNewMemory(query, response)
+                val memoryId = memoryRepository.saveNewMemory(query, response, conversationId)
 
                 // 成功后更新UI
                 _uiState.update { currentState ->
