@@ -2,6 +2,7 @@ package com.exp.memoria.data.repository
 
 import android.util.Log
 import com.exp.memoria.data.remote.api.LlmApiService
+import com.exp.memoria.data.remote.api.ModelDetail // 导入 ModelDetail
 import com.exp.memoria.data.remote.dto.ChatContent
 import com.exp.memoria.data.remote.dto.EmbeddingContent
 import com.exp.memoria.data.remote.dto.EmbeddingRequest
@@ -18,6 +19,7 @@ import javax.inject.Singleton
  * 1. 封装所有与远程大语言模型 (LLM) API 的交互细节。
  * 2. 对上层（Use Cases）屏蔽网络请求、JSON 序列化/反序列化、API 密钥管理和错误处理的复杂性。
  * 3. 提供简洁、高级的接口，用于调用不同的 LLM 功能，例如获取聊天回复、生成摘要和创建文本向量。
+ * 4. 提供获取可用 LLM 模型列表的功能，支持分页。
  *
  * 关联:
  * - 注入 `LlmApiService` 来执行实际的网络调用。
@@ -30,12 +32,24 @@ class LlmRepository @Inject constructor(
     private val settingsRepository: SettingsRepository
 ) {
 
+    private val BASE_LLM_API_URL = "https://generativelanguage.googleapis.com/"
+
     /**
      * 从 SettingsRepository 异步获取当前配置的 API 密钥。
      * 这是访问 LLM 服务所必需的。
      */
     private suspend fun getApiKey(): String {
         return settingsRepository.settingsFlow.first().apiKey
+    }
+
+    /**
+     * 从 SettingsRepository 异步获取当前配置的聊天模型名称。
+     * 这是访问 LLM 服务所必需的。
+     */
+    private suspend fun getChatModel(): String {
+        val model = settingsRepository.settingsFlow.first().chatModel
+        // 修复：无论如何，都移除 "models/" 前缀
+        return model.removePrefix("models/")
     }
 
     /**
@@ -48,9 +62,15 @@ class LlmRepository @Inject constructor(
         val request = LlmRequest(
             contents = history
         )
-        Log.d("LlmRepository", "Chat Request: $request")
-        val response = llmApiService.getChatResponse(getApiKey(), request)
-        Log.d("LlmRepository", "Chat Response: $response")
+        val modelId = getChatModel()
+        val apiKey = getApiKey()
+
+        val requestUrl = "${BASE_LLM_API_URL}v1beta/models/$modelId:generateContent?key=$apiKey"
+        Log.d("LlmRepository", "LLM 聊天请求 URL: $requestUrl")
+        Log.d("LlmRepository", "LLM 聊天请求体: $request")
+
+        val response = llmApiService.getChatResponse(modelId, apiKey, request) // 传递 modelId
+        Log.d("LlmRepository", "LLM 聊天响应: $response")
         return response.candidates.firstOrNull()?.content?.parts?.firstOrNull()?.text ?: "抱歉，无法获取回复。"
     }
 
@@ -69,9 +89,15 @@ class LlmRepository @Inject constructor(
                 )
             )
         )
-        Log.d("LlmRepository", "Summary Request: $request")
-        val response = llmApiService.getSummary(getApiKey(), request)
-        Log.d("LlmRepository", "Summary Response: $response")
+        val modelId = getChatModel()
+        val apiKey = getApiKey()
+
+        val requestUrl = "${BASE_LLM_API_URL}v1beta/models/$modelId:generateContent?key=$apiKey"
+        Log.d("LlmRepository", "LLM 摘要请求 URL: $requestUrl")
+        Log.d("LlmRepository", "LLM 摘要请求体: $request")
+
+        val response = llmApiService.getSummary(modelId, apiKey, request) // 传递 modelId
+        Log.d("LlmRepository", "LLM 摘要响应: $response")
         return response.candidates.firstOrNull()?.content?.parts?.firstOrNull()?.text ?: "无法生成摘要。"
     }
 
@@ -87,9 +113,29 @@ class LlmRepository @Inject constructor(
                 parts = listOf(Part(text = text))
             )
         )
-        Log.d("LlmRepository", "Embedding Request: $request")
-        val response = llmApiService.getEmbedding(getApiKey(), request)
-        Log.d("LlmRepository", "Embedding Response: $response")
+        val apiKey = getApiKey()
+        val requestUrl = "${BASE_LLM_API_URL}v1beta/models/embedding-gecko-001:embedContent?key=$apiKey"
+        Log.d("LlmRepository", "LLM 嵌入请求 URL: $requestUrl")
+        Log.d("LlmRepository", "LLM 嵌入请求体: $request")
+
+        val response = llmApiService.getEmbedding(apiKey, request)
+        Log.d("LlmRepository", "LLM 嵌入响应: $response")
         return response.embedding.values
+    }
+
+    /**
+     * 调用 LLM API 获取所有可用的模型列表，支持分页。
+     *
+     * @param apiKey 用于认证的 API 密钥。
+     * @param pageToken 如果存在，则用于获取下一页模型列表的令牌。
+     * @return Pair<List<ModelDetail>, String?> 包含模型列表和下一页的令牌。
+     */
+    suspend fun getAvailableModels(apiKey: String, pageToken: String?): Pair<List<ModelDetail>, String?> {
+        val requestUrl = "${BASE_LLM_API_URL}v1beta/models?key=$apiKey" + (pageToken?.let { "&pageToken=$it" } ?: "")
+        Log.d("LlmRepository", "获取可用模型请求 URL: $requestUrl")
+        Log.d("LlmRepository", "获取可用模型请求 pageToken: $pageToken")
+        val response = llmApiService.getAvailableModels(apiKey, pageToken)
+        Log.d("LlmRepository", "获取可用模型响应, 模型数量: ${response.models.size}, 下一页token: ${response.nextPageToken}")
+        return Pair(response.models, response.nextPageToken)
     }
 }

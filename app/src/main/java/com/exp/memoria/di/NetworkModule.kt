@@ -42,7 +42,10 @@ object NetworkModule {
     @Provides
     @Singleton
     fun provideRetrofit(okHttpClient: OkHttpClient): Retrofit {
-        val json = Json { ignoreUnknownKeys = true }
+        val json = Json {
+            ignoreUnknownKeys = true
+            encodeDefaults = false
+        }
         return Retrofit.Builder()
             .baseUrl("https://generativelanguage.googleapis.com/")
             .client(okHttpClient)
