@@ -6,10 +6,12 @@ import androidx.room.TypeConverters
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.exp.memoria.data.local.converters.Converters
 import com.exp.memoria.data.local.dao.CondensedMemoryDao
+import com.exp.memoria.data.local.dao.ConversationHeaderDao
 import com.exp.memoria.data.local.dao.RawMemoryDao
 import com.exp.memoria.data.local.entity.CondensedMemory
 import com.exp.memoria.data.local.entity.FTSMemoryIndex
 import com.exp.memoria.data.local.entity.RawMemory
+import com.exp.memoria.data.local.entity.ConversationHeader
 
 /**
  * [Room数据库主类]
@@ -27,7 +29,7 @@ import com.exp.memoria.data.local.entity.RawMemory
  *
  */
 @Database(
-    entities = [RawMemory::class, CondensedMemory::class, FTSMemoryIndex::class],
+    entities = [RawMemory::class, CondensedMemory::class, FTSMemoryIndex::class, ConversationHeader::class],
     version = 1,
     exportSchema = false
 )
@@ -35,6 +37,7 @@ import com.exp.memoria.data.local.entity.RawMemory
 abstract class MemoriaDatabase : RoomDatabase() {
     abstract fun rawMemoryDao(): RawMemoryDao
     abstract fun condensedMemoryDao(): CondensedMemoryDao
+    abstract fun conversationHeaderDao(): ConversationHeaderDao
 
     companion object {
         val FTS_TABLE_CALLBACK = object : Callback() {

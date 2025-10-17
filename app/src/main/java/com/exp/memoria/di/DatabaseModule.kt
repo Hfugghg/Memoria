@@ -5,6 +5,7 @@ import androidx.room.Room
 import com.exp.memoria.data.local.MemoriaDatabase
 import com.exp.memoria.data.local.dao.CondensedMemoryDao
 import com.exp.memoria.data.local.dao.RawMemoryDao
+import com.exp.memoria.data.local.dao.ConversationHeaderDao // 导入 ConversationHeaderDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -18,7 +19,8 @@ import javax.inject.Singleton
  * 职责:
  * 1. 专门负责提供所有与本地数据库(Room)相关的依赖 [cite: 51, 81]。
  * 2. 提供 MemoriaDatabase 的单例实例，确保整个应用只使用一个数据库连接。
- * 3. 提供各个DAO（Data Access Object）的实例，如 RawMemoryDao 和 CondensedMemoryDao。Hilt会从数据库实例中获取这些DAO。
+ * 3. 提供各个DAO（Data Access Object）的实例，如 RawMemoryDao 和 CondensedMemoryDao。
+ * 4. 提供 ConversationHeaderDao 的实例。
  *
  * 关联:
  * - @Module 和 @InstallIn(SingletonComponent::class) 确保数据库实例是全局单例。
@@ -54,5 +56,10 @@ object DatabaseModule {
     @Provides
     fun provideCondensedMemoryDao(database: MemoriaDatabase): CondensedMemoryDao {
         return database.condensedMemoryDao()
+    }
+
+    @Provides
+    fun provideConversationHeaderDao(database: MemoriaDatabase): ConversationHeaderDao {
+        return database.conversationHeaderDao()
     }
 }

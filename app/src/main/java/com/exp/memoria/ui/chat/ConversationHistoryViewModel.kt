@@ -40,4 +40,15 @@ class ConversationHistoryViewModel @Inject constructor(
             _conversations.value = memoryRepository.getConversations()
         }
     }
+
+    /**
+     * 在数据仓库中创建一个新的对话头部记录。
+     */
+    fun createNewConversation(conversationId: String) {
+        viewModelScope.launch {
+            memoryRepository.createNewConversation(conversationId)
+            // 重新加载对话列表以显示新创建的对话
+            loadConversations()
+        }
+    }
 }

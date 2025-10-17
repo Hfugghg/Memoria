@@ -39,6 +39,9 @@ interface RawMemoryDao {
     @Query("SELECT * FROM raw_memory WHERE conversationId = :conversationId ORDER BY timestamp DESC LIMIT 10")
     suspend fun getRecentMemories(conversationId: String): List<RawMemory>
 
+    @Query("SELECT * FROM raw_memory WHERE conversationId = :conversationId ORDER BY timestamp ASC") // 新增方法
+    suspend fun getAllForConversation(conversationId: String): List<RawMemory>
+
     // 获取所有记忆用于 RAG 上下文
     @Query("SELECT * FROM raw_memory ORDER BY timestamp ASC")
     suspend fun getAll(): List<RawMemory>
@@ -48,6 +51,11 @@ interface RawMemoryDao {
     suspend fun getWithLimitOffset(conversationId: String, limit: Int, offset: Int): List<RawMemory>
 
     // 获取所有对话的列表，按最新消息排序
-    @Query("SELECT conversationId, MAX(timestamp) as lastTimestamp FROM raw_memory GROUP BY conversationId ORDER BY lastTimestamp DESC")
-    suspend fun getConversations(): List<ConversationInfo>
+    // 这个方法不再直接使用，而是通过 ConversationHeader 和 getLatestMemoryForConversation 组合获取
+    // @Query("SELECT conversationId, MAX(timestamp) as lastTimestamp FROM raw_memory GROUP BY conversationId ORDER BY lastTimestamp DESC")
+    // suspend fun getConversations(): List<ConversationInfo>
+
+    @Query("SELECT * FROM raw_memory WHERE conversationId = :conversationId ORDER BY timestamp DESC LIMIT 1")
+    suspend fun getLatestMemoryForConversation(conversationId: String): RawMemory?
+
 }

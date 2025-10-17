@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.preferencesDataStoreFile
 import com.exp.memoria.data.local.dao.CondensedMemoryDao
 import com.exp.memoria.data.local.dao.RawMemoryDao
+import com.exp.memoria.data.local.dao.ConversationHeaderDao // 导入 ConversationHeaderDao
 import com.exp.memoria.data.remote.api.LlmApiService
 import com.exp.memoria.data.repository.LlmRepository
 import com.exp.memoria.data.repository.MemoryRepository
@@ -56,8 +57,12 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideMemoryRepository(rawMemoryDao: RawMemoryDao, condensedMemoryDao: CondensedMemoryDao): MemoryRepository {
-        return MemoryRepositoryImpl(rawMemoryDao, condensedMemoryDao)
+    fun provideMemoryRepository(
+        rawMemoryDao: RawMemoryDao,
+        condensedMemoryDao: CondensedMemoryDao,
+        conversationHeaderDao: ConversationHeaderDao // 添加 ConversationHeaderDao 参数
+    ): MemoryRepository {
+        return MemoryRepositoryImpl(rawMemoryDao, condensedMemoryDao, conversationHeaderDao)
     }
 
     @Provides
