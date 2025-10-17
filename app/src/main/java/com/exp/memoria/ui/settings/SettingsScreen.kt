@@ -1,24 +1,42 @@
 package com.exp.memoria.ui.settings
 
+import android.util.Log
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton // 导入 IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -38,6 +56,10 @@ import androidx.hilt.navigation.compose.hiltViewModel
 @Composable
 fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
     val settings by viewModel.settingsState.collectAsState()
+    val showModelSelectionDialog by viewModel.showModelSelectionDialog.collectAsState()
+    val availableModels by viewModel.availableModels.collectAsState()
+    val isLoadingModels by viewModel.isLoadingModels.collectAsState()
+    val showApiKeyError by viewModel.showApiKeyError.collectAsState()
 
     Scaffold(
         topBar = {
@@ -50,18 +72,38 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
                 .verticalScroll(rememberScrollState()) // 添加垂直滚动
                 .padding(16.dp)
         ) {
-            TextField(
+            OutlinedTextField(
                 value = settings.apiKey,
                 onValueChange = viewModel::onApiKeyChange,
                 label = { Text("API Key") },
                 modifier = Modifier.fillMaxWidth()
             )
-            TextField(
+
+            // 对话模型选择
+            OutlinedTextField(
                 value = settings.chatModel,
-                onValueChange = viewModel::onChatModelChange,
-                label = { Text("Chat Model") },
-                modifier = Modifier.fillMaxWidth()
+                onValueChange = viewModel::onChatModelChange, // 恢复手动输入功能
+                label = { Text("对话模型") },
+                readOnly = false, // 允许手动输入
+                trailingIcon = { // 将点击事件绑定到图标按钮上
+                    IconButton(onClick = {
+                        Log.d("SettingsScreen", "下拉箭头图标被点击。API Key是否为空: ${settings.apiKey.isBlank()}")
+                        // 点击时尝试获取模型列表并显示弹窗
+                        if (settings.apiKey.isNotBlank()) {
+                            viewModel.fetchAvailableModels(initialLoad = true)
+                            viewModel.onShowModelSelectionDialog()
+                            Log.d("SettingsScreen", "尝试获取模型并显示弹窗。")
+                        } else {
+                            viewModel.onShowApiKeyError()
+                            Log.d("SettingsScreen", "API Key 为空，显示错误弹窗。")
+                        }
+                    }) {
+                        Icon(Icons.Default.ArrowDropDown, contentDescription = "选择模型")
+                    }
+                },
+                modifier = Modifier.fillMaxWidth() // 移除 clickable 修饰符
             )
+
             Text("Temperature: ${settings.temperature}")
             Slider(
                 value = settings.temperature,
@@ -77,11 +119,11 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
                 steps = 10
             )
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Use Local Storage")
+                Text("本地存储")
                 Checkbox(
                     checked = settings.useLocalStorage,
                     onCheckedChange = viewModel::onUseLocalStorageChange
-                )
+                ) // 修正 Checkbox 的语法错误
             }
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -127,6 +169,85 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
                 }
             }
         }
+    }
+
+    // API Key 错误弹窗
+    if (showApiKeyError) {
+        AlertDialog(
+            onDismissRequest = viewModel::onDismissApiKeyError,
+            title = { Text("API Key 缺失") },
+            text = { Text("请先设置您的 API Key 才能获取可用模型列表。") },
+            confirmButton = {
+                TextButton(onClick = viewModel::onDismissApiKeyError) {
+                    Text("确定")
+                }
+            }
+        )
+    }
+
+    // 模型选择弹窗
+    if (showModelSelectionDialog) {
+        Log.d("SettingsScreen", "模型选择对话框正在显示。")
+        AlertDialog(
+            onDismissRequest = viewModel::onDismissModelSelectionDialog,
+            title = { Text("选择对话模型") },
+            text = {
+                Column {
+                    if (isLoadingModels && availableModels.isEmpty()) {
+                        Log.d("SettingsScreen", "模型正在加载且列表为空。")
+                        CircularProgressIndicator(modifier = Modifier.align(Alignment.CenterHorizontally))
+                    } else if (availableModels.isEmpty()) {
+                        Log.d("SettingsScreen", "模型加载完成但列表为空。")
+                        Text("没有找到可用模型。请检查 API Key 和网络连接。")
+                    } else {
+                        Log.d("SettingsScreen", "模型列表已加载，数量: ${availableModels.size}")
+                        val listState = rememberLazyListState()
+                        LazyColumn(
+                            state = listState,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            items(availableModels) { model ->
+                                if (model.supportedGenerationMethods.contains("generateContent")) { // 仅显示支持 generateContent 的模型
+                                    Column(modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            viewModel.onChatModelChange(model.name.removePrefix("models/")) // 移除 "models/"
+                                            viewModel.onDismissModelSelectionDialog()
+                                            Log.d("SettingsScreen", "模型 ${model.displayName} 被选中。")
+                                        }
+                                        .padding(vertical = 8.dp)
+                                    ) {
+                                        Text(text = model.displayName, style = MaterialTheme.typography.titleMedium)
+                                        Text(text = "输入Token限制: ${model.inputTokenLimit}", style = MaterialTheme.typography.bodySmall)
+                                        Text(text = "输出Token限制: ${model.outputTokenLimit}", style = MaterialTheme.typography.bodySmall)
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                    }
+                                }
+                            }
+                            // 加载更多模型
+                            item {
+                                LaunchedEffect(listState.canScrollForward) {
+                                    // 仅当列表不能再向前滚动（即滚动到底部）、当前不在加载中且存在 nextPageToken 时才加载更多
+                                    if (!listState.canScrollForward && !isLoadingModels && viewModel.nextPageToken.value != null) {
+                                        Log.d("SettingsScreen", "滑动到底部，加载更多模型...")
+                                        viewModel.fetchAvailableModels(initialLoad = false)
+                                    }
+                                }
+                                if (isLoadingModels) {
+                                    Log.d("SettingsScreen", "正在加载更多模型指示器。")
+                                    CircularProgressIndicator(modifier = Modifier.align(Alignment.CenterHorizontally).padding(16.dp))
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = viewModel::onDismissModelSelectionDialog) {
+                    Text("关闭")
+                }
+            }
+        )
     }
 }
 
