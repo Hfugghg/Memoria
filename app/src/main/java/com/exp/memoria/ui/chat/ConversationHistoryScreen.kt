@@ -1,5 +1,6 @@
 package com.exp.memoria.ui.chat
 
+import android.util.Log // 导入 Log
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -25,6 +26,8 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.UUID
+import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.launch
 
 /**
  * [对话历史记录页面]
@@ -51,6 +54,10 @@ fun ConversationHistoryScreen(
                     TextButton(onClick = {
                         // 创建新对话
                         val newConversationId = UUID.randomUUID().toString()
+                        Log.d("ConversationHistoryScreen", "生成新的 conversationId: $newConversationId") // 添加日志
+                        viewModel.viewModelScope.launch { // 使用 viewModelScope
+                            viewModel.createNewConversation(newConversationId) // 调用 ViewModel 的方法
+                        }
                         navController.navigate("chat?conversationId=$newConversationId") {
                             // 从后退栈中弹出此屏幕，以避免循环
                             popUpTo("conversationHistory") { inclusive = true }
@@ -84,6 +91,7 @@ fun ConversationHistoryScreen(
                         Column(modifier = Modifier
                             .fillMaxWidth()
                             .clickable {
+                                Log.d("ConversationHistoryScreen", "导航到现有对话: ${conversation.conversationId}") // 添加日志
                                 navController.navigate("chat?conversationId=${conversation.conversationId}") {
                                     // 从后退栈中弹出此屏幕，以避免循环
                                     popUpTo("conversationHistory") { inclusive = true }

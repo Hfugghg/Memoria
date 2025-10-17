@@ -1,5 +1,6 @@
 package com.exp.memoria.ui.chat
 
+import android.util.Log
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -24,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import kotlinx.coroutines.launch
+// import androidx.lifecycle.SavedStateHandle // 不再需要直接导入
 
 /**
  * [聊天界面的Compose UI]
@@ -45,7 +47,8 @@ import kotlinx.coroutines.launch
 @Composable
 fun ChatScreen(
     navController: NavController,
-    viewModel: ChatViewModel = hiltViewModel()
+    conversationId: String?, // 接收 conversationId 参数
+    viewModel: ChatViewModel = hiltViewModel(key = conversationId) // 将 conversationId 作为 key
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val listState = rememberLazyListState()

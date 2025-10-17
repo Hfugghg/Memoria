@@ -1,6 +1,7 @@
 package com.exp.memoria.ui.chat
 
 import android.app.Application
+import android.util.Log // 导入 Log
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -56,7 +57,7 @@ class ChatViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
-    // TODO: conversationId 将用于区分不同的对话。
+    // 直接从 SavedStateHandle 获取 conversationId，如果为空则生成新的
     private val conversationId: String = savedStateHandle.get<String>("conversationId") ?: UUID.randomUUID().toString()
 
     private val _uiState = MutableStateFlow(ChatState())
@@ -66,37 +67,30 @@ class ChatViewModel @Inject constructor(
     private val pageSize = 50
 
     init {
+        Log.d("ChatViewModel", "使用 conversationId 初始化: $conversationId")
         loadMoreMessages()
     }
 
     fun loadMoreMessages() {
         viewModelScope.launch {
-            // TODO: 根据 conversationId 加载特定对话的消息
-            // 从数据库获取的 memories 是按时间倒序的 (最新的在最前面)
+            Log.d("ChatViewModel", "为 conversationId: $conversationId, 页面: $currentPage 加载更多消息")
             val memories = memoryRepository.getRawMemories(conversationId, pageSize, currentPage * pageSize)
-            // 在 flatMap 之前反转列表，这样我们处理的就是时间正序的列表 (最早的在最前面)
             val chatMessages = memories.reversed().flatMap { memory ->
-                // 从 memory.contents (这是一个包含 Content.User 和 Content.Model 的列表) 中提取聊天消息
                 memory.contents.mapNotNull { content ->
-                    // 根据 content 的具体类型（User 或 Model）来创建 ChatMessage
                     when (content) {
                         is Content.User -> {
-                            // 从 User content 的 parts 中提取文本
                             val userText = (content.parts.firstOrNull() as? Part.Text)?.text ?: ""
                             ChatMessage(text = userText, isFromUser = true)
                         }
                         is Content.Model -> {
-                            // 从 Model content 的 parts 中提取文本
                             val modelText = (content.parts.firstOrNull() as? Part.Text)?.text ?: ""
                             ChatMessage(text = modelText, isFromUser = false)
                         }
-                        // 如果 content 类型不是 User 或 Model，则返回 null，mapNotNull 会自动忽略它
                         else -> null
                     }
                 }
             }
             _uiState.update { currentState ->
-                // 将获取到的更旧的消息(chatMessages)加在当前消息列表(currentState.messages)的前面
                 currentState.copy(messages = chatMessages + currentState.messages)
             }
             currentPage++
@@ -106,7 +100,6 @@ class ChatViewModel @Inject constructor(
     fun sendMessage(query: String) {
         if (query.isBlank()) return
 
-        // 立即将用户消息添加到 UI
         _uiState.update { currentState ->
             currentState.copy(
                 messages = currentState.messages + ChatMessage(text = query, isFromUser = true),
@@ -114,16 +107,14 @@ class ChatViewModel @Inject constructor(
             )
         }
 
-        // 启动协程以获取 AI 响应
         viewModelScope.launch {
             try {
-                val response = getChatResponseUseCase.invoke(query)
+                // 将 conversationId 传递给 UseCase，用于构建 LLM 上下文
+                val response = getChatResponseUseCase.invoke(query, conversationId)
 
-                // TODO: 保存消息时，需要将 conversationId 也保存到数据库中
-                // 保存到数据库
+                Log.d("ChatViewModel", "为 conversationId: $conversationId 保存新内存")
                 val memoryId = memoryRepository.saveNewMemory(query, response, conversationId)
 
-                // 成功后更新UI
                 _uiState.update { currentState ->
                     currentState.copy(
                         messages = currentState.messages + ChatMessage(text = response, isFromUser = false),
@@ -131,22 +122,18 @@ class ChatViewModel @Inject constructor(
                     )
                 }
 
-                // 启动后台任务
                 val workRequest = OneTimeWorkRequestBuilder<MemoryProcessingWorker>()
                     .setInputData(workDataOf(MemoryProcessingWorker.KEY_MEMORY_ID to memoryId))
                     .build()
                 WorkManager.getInstance(application).enqueue(workRequest)
 
             } catch (e: Exception) {
-                // 捕获所有异常，包括 HttpException
-                // 在这里处理错误，例如显示一条错误消息
                 _uiState.update { currentState ->
                     currentState.copy(
                         messages = currentState.messages + ChatMessage(text = "出错了，请重试", isFromUser = false),
                         isLoading = false
                     )
                 }
-                // 可以在 logcat 中打印错误，方便调试
                 e.printStackTrace()
             }
         }
