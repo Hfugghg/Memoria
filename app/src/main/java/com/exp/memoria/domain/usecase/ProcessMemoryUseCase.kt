@@ -12,11 +12,11 @@ import javax.inject.Inject
  * 职责:
  * 1. 封装将一条“热记忆”转换为可检索的“冷记忆”的完整后台处理流程 [cite: 17, 28]。
  * 2. 执行流程：
- * a. 接收一条待处理的原始记忆(RawMemory)或其ID。
- * b. 调用 LlmRepository 为其生成摘要(summary_text) [cite: 25]。
- * c. 调用 LlmRepository (或Embedding服务) 为其生成高精度向量(vector_float32) [cite: 25]。
- * d. (可选优化)对向量进行量化，生成vector_int8 [cite: 29, 47]。
- * e. 调用 MemoryRepository 将生成的摘要、向量存储到对应的CondensedMemory记录中，并将状态从"NEW"更新为"INDEXED" [cite: 67]。
+ *    a. 接收一条待处理的原始记忆(RawMemory)的ID。
+ *    b. 调用 LlmRepository 为其生成摘要(summary_text) [cite: 25]。
+ *    c. 调用 LlmRepository (或Embedding服务) 为其生成高精度向量(vector_float32) [cite: 25]。
+ *    d. (可选优化)对向量进行量化，生成vector_int8 [cite: 29, 47]。
+ *    e. 调用 MemoryRepository 将生成的摘要、向量存储到对应的CondensedMemory记录中，并将状态从"NEW"更新为"INDEXED" [cite: 67]。
  *
  * 关联:
  * - 注入 MemoryRepository 和 LlmRepository。
@@ -33,7 +33,15 @@ class ProcessMemoryUseCase @Inject constructor(
     private val memoryRepository: MemoryRepository,
     private val llmRepository: LlmRepository
 ) {
-    // 使用Long类型的ID来调用此用例
+    /**
+     * 执行处理记忆的核心逻辑。
+     *
+     * 此函数接收一个记忆ID，从数据库中获取对应的原始记忆，
+     * 然后通过调用 LLM API 为其生成摘要和向量嵌入，
+     * 最后将这些处理过的数据更新回数据库。
+     *
+     * @param memoryId 需要被处理的原始记忆 (RawMemory) 的ID。
+     */
     suspend operator fun invoke(memoryId: Long) {
         // 根据ID获取原始记忆，如果找不到则直接返回
         val memory = memoryRepository.getMemoryById(memoryId) ?: return

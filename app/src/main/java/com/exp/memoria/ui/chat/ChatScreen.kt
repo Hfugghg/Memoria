@@ -1,5 +1,6 @@
 package com.exp.memoria.ui.chat
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,6 +14,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -41,7 +43,10 @@ import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ChatScreen(navController: NavController, viewModel: ChatViewModel = hiltViewModel()) {
+fun ChatScreen(
+    navController: NavController,
+    viewModel: ChatViewModel = hiltViewModel()
+) {
     val uiState by viewModel.uiState.collectAsState()
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
@@ -57,7 +62,18 @@ fun ChatScreen(navController: NavController, viewModel: ChatViewModel = hiltView
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Memoria") },
+                title = {
+                    Row(
+                        modifier = Modifier.clickable { navController.navigate("conversationHistory") },
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Memoria")
+                        Icon(
+                            imageVector = Icons.Default.ArrowDropDown,
+                            contentDescription = "Switch Conversation"
+                        )
+                    }
+                },
                 actions = {
                     IconButton(onClick = { navController.navigate("settings") }) {
                         Icon(
@@ -92,6 +108,14 @@ fun ChatScreen(navController: NavController, viewModel: ChatViewModel = hiltView
     }
 }
 
+/**
+ * [消息气泡]
+ *
+ * 这是一个可组合函数，用于显示单条聊天消息。
+ * 它会根据消息的来源（用户或 AI）显示不同的对齐方式和背景颜色。
+ *
+ * @param message 要显示的消息对象。
+ */
 @Composable
 fun MessageBubble(message: ChatMessage) {
     val horizontalArrangement = if (message.isFromUser) Arrangement.End else Arrangement.Start
@@ -112,6 +136,13 @@ fun MessageBubble(message: ChatMessage) {
     }
 }
 
+/**
+ * [聊天输入栏]
+ *
+ * 这是一个可组合函数，提供了文本输入框和发送按钮，用于用户输入和发送消息。
+ *
+ * @param onSendMessage 当用户点击发送按钮时触发的回调，参数为输入的文本内容。
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatInputBar(onSendMessage: (String) -> Unit) {

@@ -30,31 +30,57 @@ data class LlmRequest(
     val generationConfig: GenerationConfig? = null
 )
 
-/** 系统指令（占位）*/
+/**
+ * [系统指令]
+ *
+ * 用于向模型提供高级别的、持久性的指令，以指导其在整个对话过程中的行为、风格和角色。
+ * 目前是一个占位符，为将来的功能扩展做准备。
+ */
 @Serializable
 data class SystemInstruction(
     val placeholder: String? = null // 尚未实现
 )
 
-/** 工具（占位）*/
+/**
+ * [工具]
+ *
+ * 定义模型可以调用的外部工具或函数，以获取额外信息或执行特定操作。
+ * 这是实现 Function Calling 功能的关键部分。
+ * 目前是一个占位符，为将来的功能扩展做准备。
+ */
 @Serializable
 data class Tool(
     val placeholder: String? = null // 尚未实现
 )
 
-/** 工具配置（占位）*/
+/**
+ * [工具配置]
+ *
+ * 用于配置模型如何使用其可用的工具。
+ * 目前是一个占位符，为将来的功能扩展做准备。
+ */
 @Serializable
 data class ToolConfig(
     val placeholder: String? = null // 尚未实现
 )
 
-/** 安全设置（占位）*/
+/**
+ * [安全设置]
+ *
+ * 用于配置 API 的安全过滤器，可以调整对不同类别（如骚扰、仇恨言论等）内容的屏蔽阈值。
+ * 目前是一个占位符，为将来的功能扩展做准备。
+ */
 @Serializable
 data class SafetySetting(
     val placeholder: String? = null // 尚未实现
 )
 
-/** 生成配置（占位）*/
+/**
+ * [生成配置]
+ *
+ * 用于控制模型生成响应的参数，例如温度 (temperature)、Top-P、最大输出长度等。
+ * 目前是一个占位符，为将来的功能扩展做准备。
+ */
 @Serializable
 data class GenerationConfig(
     val placeholder: String? = null // 尚未实现
