@@ -43,12 +43,7 @@ jobs:
       # ⭐ 步骤 2: 构建并签名 Release APK/AAB
       - name: 🏗️ 构建和签名 Release
         # 使用 --project-property 参数将签名 Secrets 注入到你的 build.gradle.kts 中
-        run: |
-          ./gradlew assembleRelease \
-            -P"SIGNING_KEYSTORE_FILE=../release.jks" \ 
-            -P"SIGNING_KEYSTORE_PASSWORD=${{ secrets.SIGNING_KEYSTORE_PASSWORD }}" \
-            -P"SIGNING_KEY_ALIAS=${{ secrets.SIGNING_KEY_ALIAS }}" \
-            -P"SIGNING_KEY_PASSWORD=${{ secrets.SIGNING_KEY_PASSWORD }}"
+        run: ./gradlew assembleRelease -P"SIGNING_KEYSTORE_FILE=../release.jks" -P"SIGNING_KEYSTORE_PASSWORD=${{ secrets.SIGNING_KEYSTORE_PASSWORD }}" -P"SIGNING_KEY_ALIAS=${{ secrets.SIGNING_KEY_ALIAS }}" -P"SIGNING_KEY_PASSWORD=${{ secrets.SIGNING_KEY_PASSWORD }}"
         env:
           # 设置环境变量，以便在上面的 run 步骤中引用 Secrets
           SIGNING_KEYSTORE_PASSWORD: ${{ secrets.SIGNING_KEYSTORE_PASSWORD }}
