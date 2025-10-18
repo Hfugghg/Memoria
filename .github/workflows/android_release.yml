@@ -45,7 +45,7 @@ jobs:
         # 使用 --project-property 参数将签名 Secrets 注入到你的 build.gradle.kts 中
         run: |
           ./gradlew assembleRelease \
-            -P"SIGNING_KEYSTORE_FILE=release.jks" \
+            -P"SIGNING_KEYSTORE_FILE=../release.jks" \ 
             -P"SIGNING_KEYSTORE_PASSWORD=${{ secrets.SIGNING_KEYSTORE_PASSWORD }}" \
             -P"SIGNING_KEY_ALIAS=${{ secrets.SIGNING_KEY_ALIAS }}" \
             -P"SIGNING_KEY_PASSWORD=${{ secrets.SIGNING_KEY_PASSWORD }}"
