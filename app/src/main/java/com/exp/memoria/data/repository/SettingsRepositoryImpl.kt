@@ -5,6 +5,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.exp.memoria.ui.settings.Settings
 import com.exp.memoria.ui.settings.JsonSchemaProperty // Import JsonSchemaProperty
@@ -25,6 +26,7 @@ class SettingsRepositoryImpl @Inject constructor(
         val CHAT_MODEL = stringPreferencesKey("chat_model")
         val TEMPERATURE = floatPreferencesKey("temperature")
         val TOP_P = floatPreferencesKey("top_p")
+        val TOP_K = intPreferencesKey("top_k")
         val USE_LOCAL_STORAGE = booleanPreferencesKey("use_local_storage")
         val HARASSMENT = floatPreferencesKey("harassment")
         val HATE_SPEECH = floatPreferencesKey("hate_speech")
@@ -39,6 +41,7 @@ class SettingsRepositoryImpl @Inject constructor(
         val chatModel = it[PreferencesKeys.CHAT_MODEL] ?: ""
         val temperature = it[PreferencesKeys.TEMPERATURE] ?: 0.8f
         val topP = it[PreferencesKeys.TOP_P] ?: 0.95f
+        val topK = it[PreferencesKeys.TOP_K]
         val useLocalStorage = it[PreferencesKeys.USE_LOCAL_STORAGE] ?: true
         val harassment = it[PreferencesKeys.HARASSMENT] ?: 0.0f
         val hateSpeech = it[PreferencesKeys.HATE_SPEECH] ?: 0.0f
@@ -57,7 +60,7 @@ class SettingsRepositoryImpl @Inject constructor(
             emptyList()
         }
 
-        Settings(apiKey, chatModel, temperature, topP, useLocalStorage, harassment, hateSpeech, sexuallyExplicit, dangerousContent, responseSchema, graphicalResponseSchema)
+        Settings(apiKey, chatModel, temperature, topP, topK, useLocalStorage, harassment, hateSpeech, sexuallyExplicit, dangerousContent, responseSchema, graphicalResponseSchema)
     }
 
     override suspend fun updateApiKey(apiKey: String) {
@@ -74,6 +77,14 @@ class SettingsRepositoryImpl @Inject constructor(
 
     override suspend fun updateTopP(topP: Float) {
         dataStore.edit { it[PreferencesKeys.TOP_P] = topP }
+    }
+
+    override suspend fun updateTopK(topK: Int?) {
+        if (topK != null) {
+            dataStore.edit { it[PreferencesKeys.TOP_K] = topK }
+        } else {
+            dataStore.edit { it.remove(PreferencesKeys.TOP_K) }
+        }
     }
 
     override suspend fun updateUseLocalStorage(useLocalStorage: Boolean) {

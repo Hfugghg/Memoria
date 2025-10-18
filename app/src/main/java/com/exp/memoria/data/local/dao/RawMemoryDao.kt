@@ -58,4 +58,6 @@ interface RawMemoryDao {
     @Query("SELECT * FROM raw_memory WHERE conversationId = :conversationId ORDER BY timestamp DESC LIMIT 1")
     suspend fun getLatestMemoryForConversation(conversationId: String): RawMemory?
 
+    @Query("DELETE FROM raw_memory WHERE conversationId = :conversationId")
+    suspend fun deleteByConversationId(conversationId: String)
 }

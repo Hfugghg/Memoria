@@ -2,8 +2,7 @@ package com.exp.memoria.ui.settings
 
 import android.util.Log
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Arrangement // 重新添加此导入
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -26,7 +25,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
@@ -120,23 +118,62 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
                 modifier = Modifier.fillMaxWidth() // 移除 clickable 修饰符
             )
 
-            Text("Temperature: ${settings.temperature}")
-            Slider(
-                value = settings.temperature,
-                onValueChange = viewModel::onTemperatureChange,
-                valueRange = 0f..1f,
-                steps = 10
+            // Temperature 输入框
+            OutlinedTextField(
+                value = settings.temperature.toString(),
+                onValueChange = { newValue ->
+                    val floatValue = newValue.toFloatOrNull()
+                    if (floatValue != null) {
+                        viewModel.onTemperatureChange(floatValue.coerceIn(0f, 1f))
+                    } else if (newValue.isBlank()) {
+                        // 可以选择清空或保持上次有效值，这里选择0.0f作为默认值
+                        viewModel.onTemperatureChange(0.0f)
+                    }
+                },
+                label = { Text("Temperature (0.0 - 1.0)") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                modifier = Modifier.fillMaxWidth()
             )
-            Text("Top P: ${settings.topP}")
-            Slider(
-                value = settings.topP,
-                onValueChange = viewModel::onTopPChange,
-                valueRange = 0f..1f,
-                steps = 10
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Top P 输入框
+            OutlinedTextField(
+                value = settings.topP.toString(),
+                onValueChange = { newValue ->
+                    val floatValue = newValue.toFloatOrNull()
+                    if (floatValue != null) {
+                        viewModel.onTopPChange(floatValue.coerceIn(0f, 1f))
+                    } else if (newValue.isBlank()) {
+                        // 可以选择清空或保持上次有效值，这里选择0.0f作为默认值
+                        viewModel.onTopPChange(0.0f)
+                    }
+                },
+                label = { Text("Top P (0.0 - 1.0)") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                modifier = Modifier.fillMaxWidth()
             )
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Top K 输入框
+            OutlinedTextField(
+                value = settings.topK?.toString() ?: "",
+                onValueChange = { newValue ->
+                    if (newValue.isNotBlank()) {
+                        val intValue = newValue.toIntOrNull()
+                        if (intValue != null) {
+                            viewModel.onTopKChange(intValue.coerceAtLeast(1))
+                        } // 如果不是有效数字，保持原值或不更新
+                    } else {
+                        viewModel.onTopKChange(null) // 清空输入时设为null
+                    }
+                },
+                label = { Text("Top K (空或 >= 1)") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(modifier = Modifier.height(16.dp))
 
             // Response Schema 设置
-            Spacer(modifier = Modifier.height(16.dp))
             Text("Response Schema 配置", style = MaterialTheme.typography.titleLarge)
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -414,12 +451,13 @@ fun JsonSchemaPropertyEditor(
                     // 仅允许英文和数字
                     if (newValue.matches(Regex("^[a-zA-Z0-9]*$"))) {
                         onPropertyChange(property.copy(name = newValue))
+                    } else if (newValue.isBlank()) {
+                        onPropertyChange(property.copy(name = ""))
                     }
                 },
                 label = { Text("属性名 (英文)") },
                 isError = property.name.isBlank(),
                 supportingText = { if (property.name.isBlank()) Text("属性名不能为空") },
-                // 修复: 移除重复的 Modifier.Modifier
                 modifier = Modifier.fillMaxWidth()
             )
             Spacer(modifier = Modifier.height(8.dp))
@@ -445,7 +483,7 @@ fun JsonSchemaPropertyEditor(
                     expanded = expanded,
                     onDismissRequest = { expanded = false }
                 ) {
-                    JsonSchemaPropertyType.values().forEach { type ->
+                    JsonSchemaPropertyType.entries.forEach { type ->
                         DropdownMenuItem(
                             text = { Text(type.displayName) },
                             onClick = {
@@ -496,7 +534,7 @@ fun JsonSchemaPropertyEditor(
                             expanded = formatExpanded,
                             onDismissRequest = { formatExpanded = false }
                         ) {
-                            StringFormat.values().forEach { format ->
+                            StringFormat.entries.forEach { format ->
                                 DropdownMenuItem(
                                     text = { Text(format.displayName) },
                                     onClick = {
@@ -576,7 +614,7 @@ fun SafetySettingsSection(
     // 安全设置卡片
     Card(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text("安全设置", style = androidx.compose.material3.MaterialTheme.typography.titleMedium)
+            Text("安全设置", style = MaterialTheme.typography.titleMedium)
             Spacer(modifier = Modifier.height(8.dp))
 
             // 骚扰内容设置

@@ -18,10 +18,8 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import javax.inject.Inject
-import javax.inject.Singleton
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
-import kotlinx.serialization.json.jsonObject // 尽管导入了，但本次不需要
 
 /**
  * [设置页面的 ViewModel]
@@ -97,7 +95,6 @@ class SettingsViewModel @Inject constructor(
                     } else {
                         graphicalProperties
                     }
-                    // 之前的序列化错误发生在这里
                     convertGraphicalSchemaToJson(combinedProperties)
                 } else {
                     settings.responseSchema
@@ -161,6 +158,16 @@ class SettingsViewModel @Inject constructor(
     fun onTopPChange(topP: Float) {
         viewModelScope.launch {
             settingsRepository.updateTopP(topP)
+        }
+    }
+
+    /**
+     * 当 Top-K 值改变时调用。
+     * @param topK 新的 Top-K 值。
+     */
+    fun onTopKChange(topK: Int?) {
+        viewModelScope.launch {
+            settingsRepository.updateTopK(topK)
         }
     }
 

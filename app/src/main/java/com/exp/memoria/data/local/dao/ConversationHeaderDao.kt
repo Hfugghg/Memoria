@@ -22,5 +22,8 @@ interface ConversationHeaderDao {
     suspend fun countConversationHeaders(conversationId: String): Int
 
     @Query("DELETE FROM conversation_header WHERE conversationId = :conversationId")
-    suspend fun deleteConversationHeader(conversationId: String)
+    suspend fun deleteByConversationId(conversationId: String)
+
+    @Query("SELECT * FROM conversation_header WHERE conversationId = :conversationId")
+    suspend fun getConversationHeaderById(conversationId: String): ConversationHeader?
 }

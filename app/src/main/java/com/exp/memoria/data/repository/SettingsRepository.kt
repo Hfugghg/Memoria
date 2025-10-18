@@ -10,6 +10,7 @@ interface SettingsRepository {
     suspend fun updateChatModel(chatModel: String)
     suspend fun updateTemperature(temperature: Float)
     suspend fun updateTopP(topP: Float)
+    suspend fun updateTopK(topK: Int?)
     suspend fun updateUseLocalStorage(useLocalStorage: Boolean)
     suspend fun updateHarassment(value: Float)
     suspend fun updateHateSpeech(value: Float)
