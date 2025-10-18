@@ -1,6 +1,7 @@
 package com.exp.memoria.data.remote.dto
 
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonElement // 添加这行导入
 
 /**
  * [LLM 对话/摘要 API的请求体]
@@ -79,9 +80,10 @@ data class SafetySetting(
  * [生成配置]
  *
  * 用于控制模型生成响应的参数，例如温度 (temperature)、Top-P、最大输出长度等。
- * 目前是一个占位符，为将来的功能扩展做准备。
+ * 可以在这里添加 responseMimeType 和 responseSchema。
  */
 @Serializable
 data class GenerationConfig(
-    val placeholder: String? = null // 尚未实现
+    val responseMimeType: String? = null,
+    val responseSchema: JsonElement? = null // <-- 修改为 JsonElement
 )

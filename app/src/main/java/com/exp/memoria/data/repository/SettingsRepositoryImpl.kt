@@ -7,9 +7,15 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.exp.memoria.ui.settings.Settings
+import com.exp.memoria.ui.settings.JsonSchemaProperty // Import JsonSchemaProperty
 import kotlinx.coroutines.flow.map
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.decodeFromString
 import javax.inject.Inject
+import javax.inject.Singleton
 
+@Singleton
 class SettingsRepositoryImpl @Inject constructor(
     private val dataStore: DataStore<Preferences>
 ) : SettingsRepository {
@@ -24,6 +30,8 @@ class SettingsRepositoryImpl @Inject constructor(
         val HATE_SPEECH = floatPreferencesKey("hate_speech")
         val SEXUALLY_EXPLICIT = floatPreferencesKey("sexually_explicit")
         val DANGEROUS_CONTENT = floatPreferencesKey("dangerous_content")
+        val RESPONSE_SCHEMA = stringPreferencesKey("response_schema")
+        val GRAPHICAL_RESPONSE_SCHEMA = stringPreferencesKey("graphical_response_schema") // Add graphical_response_schema key
     }
 
     override val settingsFlow = dataStore.data.map {
@@ -36,7 +44,20 @@ class SettingsRepositoryImpl @Inject constructor(
         val hateSpeech = it[PreferencesKeys.HATE_SPEECH] ?: 0.0f
         val sexuallyExplicit = it[PreferencesKeys.SEXUALLY_EXPLICIT] ?: 0.0f
         val dangerousContent = it[PreferencesKeys.DANGEROUS_CONTENT] ?: 0.0f
-        Settings(apiKey, chatModel, temperature, topP, useLocalStorage, harassment, hateSpeech, sexuallyExplicit, dangerousContent)
+        val responseSchema = it[PreferencesKeys.RESPONSE_SCHEMA] ?: ""
+        val graphicalResponseSchemaString = it[PreferencesKeys.GRAPHICAL_RESPONSE_SCHEMA]
+        val graphicalResponseSchema = if (!graphicalResponseSchemaString.isNullOrBlank()) {
+            try {
+                Json.decodeFromString<List<JsonSchemaProperty>>(graphicalResponseSchemaString)
+            } catch (e: Exception) {
+                // Log error or handle gracefully
+                emptyList()
+            }
+        } else {
+            emptyList()
+        }
+
+        Settings(apiKey, chatModel, temperature, topP, useLocalStorage, harassment, hateSpeech, sexuallyExplicit, dangerousContent, responseSchema, graphicalResponseSchema)
     }
 
     override suspend fun updateApiKey(apiKey: String) {
@@ -73,5 +94,13 @@ class SettingsRepositoryImpl @Inject constructor(
 
     override suspend fun updateDangerousContent(value: Float) {
         dataStore.edit { it[PreferencesKeys.DANGEROUS_CONTENT] = value }
+    }
+
+    override suspend fun updateResponseSchema(responseSchema: String) {
+        dataStore.edit { it[PreferencesKeys.RESPONSE_SCHEMA] = responseSchema }
+    }
+
+    override suspend fun updateGraphicalResponseSchema(schema: List<JsonSchemaProperty>) {
+        dataStore.edit { it[PreferencesKeys.GRAPHICAL_RESPONSE_SCHEMA] = Json.encodeToString(schema) }
     }
 }

@@ -2,13 +2,27 @@ package com.exp.memoria.data.repository
 
 import android.util.Log
 import com.exp.memoria.data.remote.api.LlmApiService
-import com.exp.memoria.data.remote.api.ModelDetail // 导入 ModelDetail
+import com.exp.memoria.data.remote.api.ModelDetail
 import com.exp.memoria.data.remote.dto.ChatContent
 import com.exp.memoria.data.remote.dto.EmbeddingContent
 import com.exp.memoria.data.remote.dto.EmbeddingRequest
 import com.exp.memoria.data.remote.dto.LlmRequest
 import com.exp.memoria.data.remote.dto.Part
+import com.exp.memoria.data.remote.dto.GenerationConfig
+import com.exp.memoria.ui.settings.JsonSchemaProperty
+import com.exp.memoria.ui.settings.JsonSchemaPropertyType
+import com.exp.memoria.ui.settings.StringFormat
 import kotlinx.coroutines.flow.first
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonObject
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.add
+import kotlinx.serialization.json.buildJsonArray
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -53,23 +67,89 @@ class LlmRepository @Inject constructor(
     }
 
     /**
+     * 将图形化编辑的属性列表转换为 JSON Schema 对象。
+     * @param properties 待转换的属性列表。
+     * @return 对应的 JSON Schema 对象。
+     */
+    private fun convertGraphicalSchemaToJson(properties: List<JsonSchemaProperty>): JsonElement {
+        if (properties.isEmpty()) {
+            return JsonNull
+        }
+
+        val propertiesMap = buildJsonObject {
+            properties.forEach { prop ->
+                putJsonObject(prop.name) {
+                    put("type", prop.type.name.lowercase())
+                    if (prop.description.isNotBlank()) {
+                        put("description", prop.description)
+                    }
+                    when (prop.type) {
+                        JsonSchemaPropertyType.STRING -> {
+                            if (prop.stringFormat != StringFormat.NONE) {
+                                put("format", prop.stringFormat.name.lowercase())
+                            }
+                        }
+                        JsonSchemaPropertyType.NUMBER -> {
+                            prop.numberMinimum?.let { put("minimum", it) }
+                            prop.numberMaximum?.let { put("maximum", it) }
+                        }
+                        else -> {
+                            // 对于 OBJECT 和 ARRAY 简化处理，暂时不添加嵌套属性
+                        }
+                    }
+                }
+            }
+        }
+
+        val requiredProperties = properties.filter { it.required }.map { it.name }
+
+        return buildJsonObject {
+            put("type", "object")
+            put("properties", propertiesMap)
+            if (requiredProperties.isNotEmpty()) {
+                put("required", buildJsonArray {
+                    requiredProperties.forEach { add(it) }
+                })
+            }
+        }
+    }
+
+    /**
      * 调用 LLM API 以获取对话回复。
      *
      * @param history 一个包含完整对话历史的 `ChatContent` 列表。
      * @return 从 LLM 返回的文本回复。如果请求失败或响应格式不正确，则返回一个默认的错误消息。
      */
     suspend fun getChatResponse(history: List<ChatContent>): String {
+        val currentSettings = settingsRepository.settingsFlow.first()
+
+        val effectiveResponseSchema: JsonElement? = if (currentSettings.isGraphicalSchemaMode) {
+            convertGraphicalSchemaToJson(currentSettings.graphicalResponseSchema)
+        } else {
+            currentSettings.responseSchema.takeIf { it.isNotBlank() }?.let { Json.parseToJsonElement(it) }
+        }
+
+        val responseMimeType = if (effectiveResponseSchema != null && effectiveResponseSchema != JsonNull) "application/json" else "text/plain"
+        val generationConfig = GenerationConfig(
+            responseMimeType = responseMimeType,
+            responseSchema = effectiveResponseSchema.takeIf { it != JsonNull }
+        )
+
         val request = LlmRequest(
-            contents = history
+            contents = history,
+            generationConfig = generationConfig
         )
         val modelId = getChatModel()
         val apiKey = getApiKey()
 
+        Log.d("LlmRepository", "LLM 聊天请求 contents: ${Json.encodeToString(request.contents)}")
+        // 重新添加打印完整请求体的日志
+        Log.d("LlmRepository", "LLM 聊天请求体: ${Json.encodeToString(request)}")
+
         val requestUrl = "${BASE_LLM_API_URL}v1beta/models/$modelId:generateContent?key=$apiKey"
         Log.d("LlmRepository", "LLM 聊天请求 URL: $requestUrl")
-        Log.d("LlmRepository", "LLM 聊天请求体: $request")
 
-        val response = llmApiService.getChatResponse(modelId, apiKey, request) // 传递 modelId
+        val response = llmApiService.getChatResponse(modelId, apiKey, request)
         Log.d("LlmRepository", "LLM 聊天响应: $response")
         return response.candidates.firstOrNull()?.content?.parts?.firstOrNull()?.text ?: "抱歉，无法获取回复。"
     }
@@ -81,22 +161,40 @@ class LlmRepository @Inject constructor(
      * @return 从 LLM 返回的摘要文本。如果请求失败或响应格式不正确，则返回一个默认的错误消息。
      */
     suspend fun getSummary(text: String): String {
+        val currentSettings = settingsRepository.settingsFlow.first()
+
+        val effectiveResponseSchema: JsonElement? = if (currentSettings.isGraphicalSchemaMode) {
+            convertGraphicalSchemaToJson(currentSettings.graphicalResponseSchema)
+        } else {
+            currentSettings.responseSchema.takeIf { it.isNotBlank() }?.let { Json.parseToJsonElement(it) }
+        }
+
+        val responseMimeType = if (effectiveResponseSchema != null && effectiveResponseSchema != JsonNull) "application/json" else "text/plain"
+        val generationConfig = GenerationConfig(
+            responseMimeType = responseMimeType,
+            responseSchema = effectiveResponseSchema.takeIf { it != JsonNull }
+        )
+
         val request = LlmRequest(
             contents = listOf(
                 ChatContent(
                     role = "user",
                     parts = listOf(Part(text = "请总结以下文本:$text"))
                 )
-            )
+            ),
+            generationConfig = generationConfig
         )
         val modelId = getChatModel()
         val apiKey = getApiKey()
 
+        Log.d("LlmRepository", "LLM 摘要请求 contents: ${Json.encodeToString(request.contents)}")
+        // 重新添加打印完整请求体的日志
+        Log.d("LlmRepository", "LLM 摘要请求体: ${Json.encodeToString(request)}")
+
         val requestUrl = "${BASE_LLM_API_URL}v1beta/models/$modelId:generateContent?key=$apiKey"
         Log.d("LlmRepository", "LLM 摘要请求 URL: $requestUrl")
-        Log.d("LlmRepository", "LLM 摘要请求体: $request")
 
-        val response = llmApiService.getSummary(modelId, apiKey, request) // 传递 modelId
+        val response = llmApiService.getSummary(modelId, apiKey, request)
         Log.d("LlmRepository", "LLM 摘要响应: $response")
         return response.candidates.firstOrNull()?.content?.parts?.firstOrNull()?.text ?: "无法生成摘要。"
     }
