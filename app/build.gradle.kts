@@ -52,6 +52,12 @@ android {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
     }
+
+    sourceSets {
+        getByName("test") {
+            java.srcDirs("src/test/java")
+        }
+    }
 }
 
 dependencies {
@@ -98,6 +104,9 @@ dependencies {
 
     // OkHttp - Retrofit 的底层依赖，解决 "Unresolved reference 'okhttp3'" 问题
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
+
+    // Gson (JSON 解析)
+    implementation("com.google.code.gson:gson:2.10.1")
 
     // Kotlinx Serialization 核心库
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.0")
