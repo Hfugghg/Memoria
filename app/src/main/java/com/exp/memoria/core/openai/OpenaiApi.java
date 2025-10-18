@@ -8,8 +8,6 @@ public class OpenaiApi {
     int max_tokens;//max tokens
     double temperature;//temperature
     String system_message;//system message
-
-
     private void chat(){
 
     }

@@ -1,5 +1,6 @@
 package com.exp.memoria.data.repository
 
+import android.util.Log
 import com.exp.memoria.data.Content
 import com.exp.memoria.data.Part
 import com.exp.memoria.data.local.dao.CondensedMemoryDao
@@ -29,6 +30,8 @@ import javax.inject.Inject
  *    - `createNewConversation(...)`: 创建一个新的对话头部记录。
  *    - `updateConversationLastUpdate(...)`: 更新对话的最后更新时间。
  *    - `getAllRawMemoriesForConversation(...)`: 获取特定对话的所有原始记忆。
+ *    - `deleteConversation(...)`: 删除指定 ID 的对话及其所有相关记忆。
+ *    - `renameConversation(...)`: 重命名指定 ID 的对话。
  *
  * 关联:
  * - 它会注入 RawMemoryDao 和 CondensedMemoryDao。
@@ -39,27 +42,27 @@ interface MemoryRepository {
     suspend fun getMemoryById(id: Long): RawMemory?
     suspend fun updateProcessedMemory(id: Long, summary: String, vector: List<Float>)
     suspend fun getAllRawMemories(): List<RawMemory>
-    suspend fun getAllRawMemoriesForConversation(conversationId: String): List<RawMemory> // 新增方法
+    suspend fun getAllRawMemoriesForConversation(conversationId: String): List<RawMemory>
     suspend fun getRawMemories(conversationId: String, limit: Int, offset: Int): List<RawMemory>
     suspend fun getConversations(): List<ConversationInfo>
     suspend fun createNewConversation(conversationId: String)
     suspend fun updateConversationLastUpdate(conversationId: String, timestamp: Long)
+    suspend fun deleteConversation(conversationId: String)
+    suspend fun renameConversation(conversationId: String, newName: String)
 }
 
 class MemoryRepositoryImpl @Inject constructor(
     private val rawMemoryDao: RawMemoryDao,
     private val condensedMemoryDao: CondensedMemoryDao,
-    private val conversationHeaderDao: ConversationHeaderDao // 注入 ConversationHeaderDao
+    private val conversationHeaderDao: ConversationHeaderDao
 ) : MemoryRepository {
 
     override suspend fun saveNewMemory(query: String, response: String, conversationId: String): Long {
-        // 确保对话头部存在并更新最后更新时间
         if (conversationHeaderDao.countConversationHeaders(conversationId) == 0) {
             val now = System.currentTimeMillis()
-            conversationHeaderDao.insert(ConversationHeader(conversationId, now, now))
+            conversationHeaderDao.insert(ConversationHeader(conversationId, "新对话", now, now))
         } else {
-            // 如果对话已存在，更新其最后更新时间
-            val existingHeader = conversationHeaderDao.getAllConversationHeaders().firstOrNull { it.conversationId == conversationId }
+            val existingHeader = conversationHeaderDao.getConversationHeaderById(conversationId)
             existingHeader?.let {
                 conversationHeaderDao.update(it.copy(lastUpdateTimestamp = System.currentTimeMillis()))
             }
@@ -79,6 +82,7 @@ class MemoryRepositoryImpl @Inject constructor(
 
         val condensedMemory = CondensedMemory(
             raw_memory_id = rawMemoryId,
+            conversationId = conversationId, // 修复：添加 conversationId 参数
             summary_text = "",
             vector_int8 = null,
             status = "NEW",
@@ -116,27 +120,52 @@ class MemoryRepositoryImpl @Inject constructor(
     }
 
     override suspend fun getConversations(): List<ConversationInfo> {
-        // 从 ConversationHeader 获取所有对话，并尝试获取其最新的 RawMemory 记录来补充信息
         val conversationHeaders = conversationHeaderDao.getAllConversationHeaders()
         return conversationHeaders.map { header ->
             val latestRawMemory = rawMemoryDao.getLatestMemoryForConversation(header.conversationId)
             ConversationInfo(
                 conversationId = header.conversationId,
-                lastTimestamp = latestRawMemory?.timestamp ?: header.creationTimestamp // 如果没有聊天记录，使用创建时间
+                name = header.name,
+                lastTimestamp = latestRawMemory?.timestamp ?: header.creationTimestamp
             )
         }
     }
 
     override suspend fun createNewConversation(conversationId: String) {
         val now = System.currentTimeMillis()
-        val newHeader = ConversationHeader(conversationId, now, now)
+        val newHeader = ConversationHeader(conversationId, "新对话", now, now)
         conversationHeaderDao.insert(newHeader)
     }
 
     override suspend fun updateConversationLastUpdate(conversationId: String, timestamp: Long) {
-        val header = conversationHeaderDao.getAllConversationHeaders().firstOrNull { it.conversationId == conversationId }
+        val header = conversationHeaderDao.getConversationHeaderById(conversationId)
         header?.let {
             conversationHeaderDao.update(it.copy(lastUpdateTimestamp = timestamp))
+        }
+    }
+
+    override suspend fun deleteConversation(conversationId: String) {
+        rawMemoryDao.deleteByConversationId(conversationId)
+        condensedMemoryDao.deleteByConversationId(conversationId)
+        conversationHeaderDao.deleteByConversationId(conversationId)
+    }
+
+    override suspend fun renameConversation(conversationId: String, newName: String) {
+        Log.d("MemoryRepository", "Attempting to rename conversation. ID: $conversationId, New Name: $newName")
+        val header = conversationHeaderDao.getConversationHeaderById(conversationId)
+        header?.let {
+            Log.d("MemoryRepository", "Found existing header: $it")
+            val updatedHeader = ConversationHeader(
+                conversationId = it.conversationId,
+                name = newName,
+                creationTimestamp = it.creationTimestamp,
+                lastUpdateTimestamp = System.currentTimeMillis()
+            )
+            Log.d("MemoryRepository", "Updating header to: $updatedHeader")
+            conversationHeaderDao.update(updatedHeader)
+            Log.d("MemoryRepository", "Conversation renamed successfully in DAO.")
+        } ?: run {
+            Log.w("MemoryRepository", "Conversation header not found for ID: $conversationId. Cannot rename.")
         }
     }
 }

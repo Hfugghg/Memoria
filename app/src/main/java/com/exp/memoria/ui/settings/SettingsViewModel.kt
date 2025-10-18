@@ -10,10 +10,16 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import javax.inject.Inject
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 
 /**
  * [设置页面的 ViewModel]
@@ -25,8 +31,8 @@ import javax.inject.Inject
  * 4. 负责从 LlmRepository 获取可用模型列表，并管理模型选择对话框的状态和分页加载。
  *
  * @property settingsState 一个 StateFlow，它从 SettingsRepository 收集设置数据，并将其暴露给 UI。
- *                         `stateIn` 操作符将冷流 (Flow) 转换为热流 (StateFlow)，
- *                         使其可以在多个订阅者之间共享，并在没有订阅者时在后台保持活动 5 秒。
+ * `stateIn` 操作符将冷流 (Flow) 转换为热流 (StateFlow)，
+ * 使其可以在多个订阅者之间共享，并在没有订阅者时在后台保持活动 5 秒。
  */
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
@@ -59,6 +65,61 @@ class SettingsViewModel @Inject constructor(
     // 存储下一页的模型列表 token
     private val _nextPageToken = MutableStateFlow<String?>(null)
     val nextPageToken = _nextPageToken.asStateFlow()
+
+    // 控制是否显示图形化 Response Schema 编辑器
+    private val _isGraphicalSchemaMode = MutableStateFlow(false)
+    val isGraphicalSchemaMode = _isGraphicalSchemaMode.asStateFlow()
+
+    // 存储图形化编辑的属性列表
+    private val _graphicalSchemaProperties = MutableStateFlow<List<JsonSchemaProperty>>(emptyList())
+    val graphicalSchemaProperties = _graphicalSchemaProperties.asStateFlow()
+
+    // 用于编辑新的或现有的属性的草稿
+    private val _draftProperty = MutableStateFlow(JsonSchemaProperty(id = System.currentTimeMillis()))
+    val draftProperty = _draftProperty.asStateFlow()
+
+    // 用于存储当前生效的 responseSchema JSON 字符串，无论是来自直接输入还是图形化生成
+    private val _currentResponseSchemaString = MutableStateFlow("")
+    val currentResponseSchemaString = _currentResponseSchemaString.asStateFlow()
+
+    init {
+        // 当 settingsState 或 graphicalSchemaProperties 变化时，更新 _currentResponseSchemaString
+        viewModelScope.launch {
+            combine(settingsState, graphicalSchemaProperties, _isGraphicalSchemaMode, _draftProperty) { settings, graphicalProperties, isGraphicalMode, draftProp ->
+                if (isGraphicalMode) {
+                    val combinedProperties = if (draftProp.name.isNotBlank()) {
+                        // If draft property has a valid name, include it in the conversion
+                        // 确保不重复添加已存在于列表中的属性 (虽然可能性小，但保险起见)
+                        val exists = graphicalProperties.any { it.id == draftProp.id }
+                        if (exists) graphicalProperties else graphicalProperties + draftProp
+                    } else {
+                        graphicalProperties
+                    }
+                    convertGraphicalSchemaToJson(combinedProperties)
+                } else {
+                    settings.responseSchema
+                }
+            }.collect {
+                _currentResponseSchemaString.value = it
+            }
+        }
+
+        // 初始化 graphicalSchemaProperties
+        viewModelScope.launch {
+            settingsState.map { it.graphicalResponseSchema }.collect {
+                _graphicalSchemaProperties.value = it
+            }
+        }
+
+        // 监听 _isGraphicalSchemaMode 变化，如果切换模式，则重置 _draftProperty
+        viewModelScope.launch {
+            _isGraphicalSchemaMode.collect { isGraphicalMode ->
+                if (isGraphicalMode) {
+                    _draftProperty.value = JsonSchemaProperty(id = System.currentTimeMillis())
+                }
+            }
+        }
+    }
 
     /**
      * 当 API 密钥输入框内容改变时调用。
@@ -97,6 +158,16 @@ class SettingsViewModel @Inject constructor(
     fun onTopPChange(topP: Float) {
         viewModelScope.launch {
             settingsRepository.updateTopP(topP)
+        }
+    }
+
+    /**
+     * 当 Top-K 值改变时调用。
+     * @param topK 新的 Top-K 值。
+     */
+    fun onTopKChange(topK: Int?) {
+        viewModelScope.launch {
+            settingsRepository.updateTopK(topK)
         }
     }
 
@@ -148,6 +219,158 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             settingsRepository.updateDangerousContent(value)
         }
+    }
+
+    /**
+     * 当 responseSchema 输入框内容改变时调用。
+     * @param responseSchema 新的 responseSchema 字符串。
+     */
+    fun onResponseSchemaChange(responseSchema: String) {
+        viewModelScope.launch {
+            settingsRepository.updateResponseSchema(responseSchema)
+        }
+    }
+
+    /**
+     * 切换图形化 Response Schema 编辑模式。
+     */
+    fun onToggleGraphicalSchemaMode() {
+        // 在更新状态之前，将当前模式的数据保存
+        viewModelScope.launch {
+            if (_isGraphicalSchemaMode.value) {
+                // 从图形化模式切换到 JSON 模式，将当前图形化数据生成的 JSON 存入 responseSchema
+                settingsRepository.updateResponseSchema(_currentResponseSchemaString.value)
+            } else {
+                // 从 JSON 模式切换到图形化模式，将当前 JSON 字符串存入 graphicalResponseSchema (假设 SettingsRepository 有解析逻辑)
+                // 注意: 这里应该实现 JSON 字符串到 JsonSchemaProperty 列表的解析逻辑，但为了简单，先保存当前图形化列表
+                settingsRepository.updateGraphicalResponseSchema(_graphicalSchemaProperties.value)
+            }
+        }
+        _isGraphicalSchemaMode.update { !it }
+        // 模式切换后，重置草稿属性
+        _draftProperty.value = JsonSchemaProperty(id = System.currentTimeMillis())
+    }
+
+    /**
+     * 添加一个新的 JSON Schema 属性。
+     * 从 _draftProperty 获取属性，添加到列表中，并重置 _draftProperty。
+     */
+    // SettingsViewModel.kt - addGraphicalSchemaProperty (已修复)
+    fun addGraphicalSchemaProperty() {
+        val propertyToAdd = _draftProperty.value
+        // 确保属性名不为空且不在现有列表中（基于名称或 ID 检查）
+        if (propertyToAdd.name.isNotBlank() && !_graphicalSchemaProperties.value.any { it.name == propertyToAdd.name }) {
+            _graphicalSchemaProperties.update { currentList ->
+                // 1. 计算新列表
+                val newList = currentList + propertyToAdd.copy(id = System.currentTimeMillis())
+
+                // 2. 在更新 StateFlow 之前，将新列表保存到仓库
+                viewModelScope.launch {
+                    settingsRepository.updateGraphicalResponseSchema(newList)
+                }
+
+                // 3. 返回新列表以更新 StateFlow 的值
+                newList // update 块的返回值用于更新 StateFlow
+            }
+            _draftProperty.value = JsonSchemaProperty(id = System.currentTimeMillis()) // 重置草稿
+        } else if (propertyToAdd.name.isNotBlank()) {
+            Log.w("SettingsViewModel", "试图添加一个属性名已存在的属性: ${propertyToAdd.name}")
+        } else {
+            Log.w("SettingsViewModel", "试图添加一个属性名为空的属性。")
+        }
+    }
+
+    /**
+     * 更新一个现有的 JSON Schema 属性。
+     * @param updatedProperty 需要更新的属性对象。
+     */
+    fun updateGraphicalSchemaProperty(updatedProperty: JsonSchemaProperty) {
+        _graphicalSchemaProperties.update { currentProperties ->
+            currentProperties.map {
+                if (it.id == updatedProperty.id) updatedProperty else it
+            }.also {
+                viewModelScope.launch {
+                    settingsRepository.updateGraphicalResponseSchema(it)
+                }
+            }
+        }
+    }
+
+    /**
+     * 更新草稿属性。
+     * @param updatedProperty 需要更新的草稿属性对象。
+     */
+    fun onDraftPropertyChange(updatedProperty: JsonSchemaProperty) {
+        _draftProperty.value = updatedProperty
+    }
+
+    /**
+     * 删除一个 JSON Schema 属性。
+     * @param propertyId 需要删除的属性的唯一ID。
+     */
+    fun removeGraphicalSchemaProperty(propertyId: Long) {
+        _graphicalSchemaProperties.update { currentProperties ->
+            currentProperties.filter { it.id != propertyId }.also {
+                viewModelScope.launch {
+                    settingsRepository.updateGraphicalResponseSchema(it)
+                }
+            }
+        }
+    }
+
+    /**
+     * 将图形化编辑的属性列表转换为 JSON Schema 字符串。
+     * @param properties 待转换的属性列表。
+     * @return 对应的 JSON Schema 字符串。
+     * * 修复了 SerializationException: Serializer for class 'Any' is not found. 的问题
+     */
+    private fun convertGraphicalSchemaToJson(properties: List<JsonSchemaProperty>): String {
+        if (properties.isEmpty()) {
+            return ""
+        }
+
+        // 步骤 1: 构建每个属性的 JsonObject
+        val propertiesMap = properties.associate { prop ->
+            prop.name to buildJsonObject {
+                // 确保属性名不为空
+                if (prop.name.isBlank()) return@associate "" to buildJsonObject{} // 跳过空属性名
+
+                put("type", prop.type.name.lowercase())
+                if (prop.description.isNotBlank()) {
+                    put("description", prop.description)
+                }
+                when (prop.type) {
+                    JsonSchemaPropertyType.STRING -> {
+                        if (prop.stringFormat != StringFormat.NONE) {
+                            put("format", prop.stringFormat.name.lowercase())
+                        }
+                    }
+                    JsonSchemaPropertyType.NUMBER -> {
+                        // 使用 put(key, Double) 的重载
+                        prop.numberMinimum?.let { put("minimum", it) }
+                        prop.numberMaximum?.let { put("maximum", it) }
+                    }
+                    else -> {
+                        // 对于 OBJECT 和 ARRAY 简化处理，暂时不添加嵌套属性
+                    }
+                }
+            }
+        }.filterKeys { it.isNotBlank() } // 过滤掉空属性名的键值对
+
+        // 步骤 2: 构建根 JSON Schema 对象
+        val rootSchema = buildJsonObject {
+            put("type", "object")
+            // 步骤 3: 嵌套 properties 字段
+            put("properties", buildJsonObject {
+                propertiesMap.forEach { (name, jsonObject) ->
+                    // put(key, JsonElement) 的重载，将 JsonObject 放入父 JsonObject
+                    put(name, jsonObject)
+                }
+            })
+        }
+
+        // 步骤 4: 序列化为字符串
+        return Json.encodeToString(rootSchema)
     }
 
     /**

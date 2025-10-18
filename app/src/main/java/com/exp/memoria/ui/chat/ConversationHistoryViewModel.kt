@@ -51,4 +51,24 @@ class ConversationHistoryViewModel @Inject constructor(
             loadConversations()
         }
     }
+
+    /**
+     * 从数据仓库中删除指定 ID 的对话。
+     */
+    fun deleteConversation(conversationId: String) {
+        viewModelScope.launch {
+            memoryRepository.deleteConversation(conversationId)
+            loadConversations()
+        }
+    }
+
+    /**
+     * 重命名指定 ID 的对话。
+     */
+    fun renameConversation(conversationId: String, newName: String) {
+        viewModelScope.launch {
+            memoryRepository.renameConversation(conversationId, newName)
+            loadConversations()
+        }
+    }
 }

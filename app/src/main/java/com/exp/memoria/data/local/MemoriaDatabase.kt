@@ -12,6 +12,7 @@ import com.exp.memoria.data.local.entity.CondensedMemory
 import com.exp.memoria.data.local.entity.FTSMemoryIndex
 import com.exp.memoria.data.local.entity.RawMemory
 import com.exp.memoria.data.local.entity.ConversationHeader
+import androidx.room.migration.Migration
 
 /**
  * [Room数据库主类]
@@ -30,7 +31,7 @@ import com.exp.memoria.data.local.entity.ConversationHeader
  */
 @Database(
     entities = [RawMemory::class, CondensedMemory::class, FTSMemoryIndex::class, ConversationHeader::class],
-    version = 1,
+    version = 3, // 数据库版本从2升级到3
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -91,6 +92,25 @@ abstract class MemoriaDatabase : RoomDatabase() {
                 END
                 """.trimIndent()
                 )
+            }
+        }
+
+        // 数据库迁移，从版本 1 到版本 2
+        val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // 为 conversation_header 表添加 name 列
+                db.execSQL("ALTER TABLE conversation_header ADD COLUMN name TEXT NOT NULL DEFAULT '新对话'")
+
+                // 为 condensed_memory 表添加 conversationId 列
+                db.execSQL("ALTER TABLE condensed_memory ADD COLUMN conversationId TEXT NOT NULL DEFAULT ''")
+            }
+        }
+
+        // 数据库迁移，从版本 2 到版本 3
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // 为 raw_memory 表的 conversationId 列添加唯一索引
+                db.execSQL("CREATE UNIQUE INDEX index_raw_memory_conversationId ON raw_memory (conversationId)")
             }
         }
     }

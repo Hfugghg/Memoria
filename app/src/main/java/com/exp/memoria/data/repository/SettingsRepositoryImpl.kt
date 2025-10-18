@@ -5,11 +5,18 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.exp.memoria.ui.settings.Settings
+import com.exp.memoria.ui.settings.JsonSchemaProperty // Import JsonSchemaProperty
 import kotlinx.coroutines.flow.map
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.decodeFromString
 import javax.inject.Inject
+import javax.inject.Singleton
 
+@Singleton
 class SettingsRepositoryImpl @Inject constructor(
     private val dataStore: DataStore<Preferences>
 ) : SettingsRepository {
@@ -19,11 +26,14 @@ class SettingsRepositoryImpl @Inject constructor(
         val CHAT_MODEL = stringPreferencesKey("chat_model")
         val TEMPERATURE = floatPreferencesKey("temperature")
         val TOP_P = floatPreferencesKey("top_p")
+        val TOP_K = intPreferencesKey("top_k")
         val USE_LOCAL_STORAGE = booleanPreferencesKey("use_local_storage")
         val HARASSMENT = floatPreferencesKey("harassment")
         val HATE_SPEECH = floatPreferencesKey("hate_speech")
         val SEXUALLY_EXPLICIT = floatPreferencesKey("sexually_explicit")
         val DANGEROUS_CONTENT = floatPreferencesKey("dangerous_content")
+        val RESPONSE_SCHEMA = stringPreferencesKey("response_schema")
+        val GRAPHICAL_RESPONSE_SCHEMA = stringPreferencesKey("graphical_response_schema") // Add graphical_response_schema key
     }
 
     override val settingsFlow = dataStore.data.map {
@@ -31,12 +41,26 @@ class SettingsRepositoryImpl @Inject constructor(
         val chatModel = it[PreferencesKeys.CHAT_MODEL] ?: ""
         val temperature = it[PreferencesKeys.TEMPERATURE] ?: 0.8f
         val topP = it[PreferencesKeys.TOP_P] ?: 0.95f
+        val topK = it[PreferencesKeys.TOP_K]
         val useLocalStorage = it[PreferencesKeys.USE_LOCAL_STORAGE] ?: true
         val harassment = it[PreferencesKeys.HARASSMENT] ?: 0.0f
         val hateSpeech = it[PreferencesKeys.HATE_SPEECH] ?: 0.0f
         val sexuallyExplicit = it[PreferencesKeys.SEXUALLY_EXPLICIT] ?: 0.0f
         val dangerousContent = it[PreferencesKeys.DANGEROUS_CONTENT] ?: 0.0f
-        Settings(apiKey, chatModel, temperature, topP, useLocalStorage, harassment, hateSpeech, sexuallyExplicit, dangerousContent)
+        val responseSchema = it[PreferencesKeys.RESPONSE_SCHEMA] ?: ""
+        val graphicalResponseSchemaString = it[PreferencesKeys.GRAPHICAL_RESPONSE_SCHEMA]
+        val graphicalResponseSchema = if (!graphicalResponseSchemaString.isNullOrBlank()) {
+            try {
+                Json.decodeFromString<List<JsonSchemaProperty>>(graphicalResponseSchemaString)
+            } catch (e: Exception) {
+                // Log error or handle gracefully
+                emptyList()
+            }
+        } else {
+            emptyList()
+        }
+
+        Settings(apiKey, chatModel, temperature, topP, topK, useLocalStorage, harassment, hateSpeech, sexuallyExplicit, dangerousContent, responseSchema, graphicalResponseSchema)
     }
 
     override suspend fun updateApiKey(apiKey: String) {
@@ -53,6 +77,14 @@ class SettingsRepositoryImpl @Inject constructor(
 
     override suspend fun updateTopP(topP: Float) {
         dataStore.edit { it[PreferencesKeys.TOP_P] = topP }
+    }
+
+    override suspend fun updateTopK(topK: Int?) {
+        if (topK != null) {
+            dataStore.edit { it[PreferencesKeys.TOP_K] = topK }
+        } else {
+            dataStore.edit { it.remove(PreferencesKeys.TOP_K) }
+        }
     }
 
     override suspend fun updateUseLocalStorage(useLocalStorage: Boolean) {
@@ -73,5 +105,13 @@ class SettingsRepositoryImpl @Inject constructor(
 
     override suspend fun updateDangerousContent(value: Float) {
         dataStore.edit { it[PreferencesKeys.DANGEROUS_CONTENT] = value }
+    }
+
+    override suspend fun updateResponseSchema(responseSchema: String) {
+        dataStore.edit { it[PreferencesKeys.RESPONSE_SCHEMA] = responseSchema }
+    }
+
+    override suspend fun updateGraphicalResponseSchema(schema: List<JsonSchemaProperty>) {
+        dataStore.edit { it[PreferencesKeys.GRAPHICAL_RESPONSE_SCHEMA] = Json.encodeToString(schema) }
     }
 }
