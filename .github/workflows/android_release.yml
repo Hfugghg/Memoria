@@ -58,6 +58,23 @@ jobs:
           name: 预发布版本 (Build ${{ github.sha }})
           prerelease: true
           # 假设已签名的 APK 位于 app/build/outputs/apk/release/
+          body: |
+            # 预发布说明 / Pre-release Notes
+            
+            这是一个基于最新代码 ${{ github.sha }} 的预发布版本。
+            请注意：此版本可能包含 Bug 或不完整的功能。
+            
+            ## 包含的资产:
+            * 已签名的 APK 文件 (`app-release.apk`)
+            
+            ---
+            
+            This is a pre-release build based on the latest commit ${{ github.sha }}.
+            Please be advised: This version may contain bugs or incomplete features.
+            
+            ## Included Assets:
+            * Signed APK file (`app-release.apk`)
+
           files: |
             app/build/outputs/apk/release/*.apk
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -66,27 +83,3 @@ jobs:
         # 确保在工作流结束后删除临时创建的密钥库文件
         if: always() # 无论成功还是失败都执行
         run: rm -f release.jks
-
----
-
-## 必需的 GitHub Secrets
-
-  为了让工作流成功运行，你必须在你的 GitHub 仓库中（**Settings** > **Secrets and variables** > **Actions**）设置以下五个 Secrets：
-  
-  | Secret 名称 | 作用 | 你的 Gradle 属性名称 | 如何获取/值 |
-  | :--- | :--- | :--- | :--- |
-  | **`SIGNING_KEY_BASE64`** | 你的密钥库文件（`.jks` 或 `.keystore`）的 Base64 编码内容。 | N/A (用于解码) | `cat your_key.jks | base64` |
-  | **`SIGNING_KEYSTORE_PASSWORD`** | 密钥库的密码。 | `SIGNING_KEYSTORE_PASSWORD` | 你的密钥库密码 |
-  | **`SIGNING_KEY_ALIAS`** | 密钥别名。 | `SIGNING_KEY_ALIAS` | 你的密钥别名 |
-  | **`SIGNING_KEY_PASSWORD`** | 密钥（私钥）的密码。 | `SIGNING_KEY_PASSWORD` | 你的密钥密码 |
-  
-  ### 工作原理：
-  
-  1.  **解码 Keystore 文件**：工作流的第一步使用 `base64 -d` 命令将存储在 `SIGNING_KEY_BASE64` Secret 中的长字符串还原为项目根目录下的实际文件 `release.jks`。
-  2.  **构建和签名**：
-  * `assembleRelease` 任务被执行。
-  * **`-P"..."`** 标志用于通过命令行传入项目属性（`project.property(...)`）。
-  * `SIGNING_KEYSTORE_FILE` 被设置为 `'release.jks'` 的路径。
-  * 你的 Gradle 代码读取这些属性，完成配置，并自动用它们对构建的 APK 进行签名。
-  3.  **发布**：使用 `softprops/action-gh-release` Action 将已签名的 APK 附加到新的 GitHub 预发布版本中。
-  4.  **清理**：最后一步删除 CI 机器上的 `release.jks` 文件，确保环境清洁。
