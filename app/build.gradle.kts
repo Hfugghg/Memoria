@@ -20,6 +20,33 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        create("release") {
+            // 使用 findProperty 更安全，它不会在属性不存在时抛出异常，而是返回 null
+            val keystoreFileProp = project.findProperty("SIGNING_KEYSTORE_FILE")
+
+            if (keystoreFileProp != null) {
+                // 确保所有必需的属性都存在
+                val storePass = project.findProperty("SIGNING_KEYSTORE_PASSWORD")?.toString()
+                val keyAliasName = project.findProperty("SIGNING_KEY_ALIAS")?.toString()
+                val keyPass = project.findProperty("SIGNING_KEY_PASSWORD")?.toString()
+
+                // 只有当所有属性都存在时才配置签名
+                if (storePass != null && keyAliasName != null && keyPass != null) {
+                    storeFile = file(keystoreFileProp.toString())
+                    storePassword = storePass
+                    keyAlias = keyAliasName
+                    keyPassword = keyPass
+                } else {
+                    println("Warning: One or more signing secrets are missing, release signing config will be incomplete.")
+                }
+            } else {
+                // 这将在本地开发环境中，如果属性未设置，使用默认/调试签名
+                println("Info: SIGNING_KEYSTORE_FILE property not found. Ensure this is intentional for your current environment.")
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
@@ -27,6 +54,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 

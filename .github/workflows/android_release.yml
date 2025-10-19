@@ -1,0 +1,85 @@
+name: Android Pre-release Build and Deploy
+
+# 在推送到 main 分支时触发工作流
+on:
+  push:
+    branches:
+      - main
+  # 允许手动触发
+  workflow_dispatch:
+
+jobs:
+  build_and_release:
+    runs-on: ubuntu-latest
+
+    # 授予写入权限以创建 Release
+    permissions:
+      contents: write
+
+    steps:
+      - name: 📦 检出代码
+        uses: actions/checkout@v4
+
+      - name: ☕ 设置 JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: 'gradle'
+
+      - name: 赋予 gradlew 执行权限
+        run: chmod +x gradlew
+
+      # ⭐ 步骤 1: 安全地解码密钥库文件
+      # 将 Base64 字符串解码为实际的 .jks 文件，供 Gradle 使用
+      - name: 🔒 解码 Keystore 文件
+        # 我们将文件放在项目根目录，命名为 release.jks
+        run: |
+          echo "${{ secrets.SIGNING_KEY_BASE64 }}" | base64 -d > release.jks
+        env:
+          # 确保你在 GitHub Secrets 中添加了 SIGNING_KEY_BASE64
+          SIGNING_KEY_BASE64: ${{ secrets.SIGNING_KEY_BASE64 }}
+
+      # ⭐ 步骤 2: 构建并签名 Release APK/AAB
+      - name: 🏗️ 构建和签名 Release
+        # 使用 --project-property 参数将签名 Secrets 注入到你的 build.gradle.kts 中
+        run: ./gradlew assembleRelease -P"SIGNING_KEYSTORE_FILE=../release.jks" -P"SIGNING_KEYSTORE_PASSWORD=${{ secrets.SIGNING_KEYSTORE_PASSWORD }}" -P"SIGNING_KEY_ALIAS=${{ secrets.SIGNING_KEY_ALIAS }}" -P"SIGNING_KEY_PASSWORD=${{ secrets.SIGNING_KEY_PASSWORD }}"
+        env:
+          # 设置环境变量，以便在上面的 run 步骤中引用 Secrets
+          SIGNING_KEYSTORE_PASSWORD: ${{ secrets.SIGNING_KEYSTORE_PASSWORD }}
+          SIGNING_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
+          SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
+
+      # ⭐ 步骤 3: 发布到 GitHub 预发布
+      - name: 🚀 发布到 GitHub 预发布 (Pre-release)
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: "prerelease-${{ github.sha }}"
+          name: 预发布版本 (Build ${{ github.sha }})
+          prerelease: true
+          # 假设已签名的 APK 位于 app/build/outputs/apk/release/
+          body: |
+            # 预发布说明 / Pre-release Notes
+            
+            这是一个基于最新代码 ${{ github.sha }} 的预发布版本。
+            请注意：此版本可能包含 Bug 或不完整的功能。
+            
+            ## 包含的资产:
+            * 已签名的 APK 文件 (`app-release.apk`)
+            
+            ---
+            
+            This is a pre-release build based on the latest commit ${{ github.sha }}.
+            Please be advised: This version may contain bugs or incomplete features.
+            
+            ## Included Assets:
+            * Signed APK file (`app-release.apk`)
+
+          files: |
+            app/build/outputs/apk/release/*.apk
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 🗑️ 清理 Keystore 文件 (安全措施)
+        # 确保在工作流结束后删除临时创建的密钥库文件
+        if: always() # 无论成功还是失败都执行
+        run: rm -f release.jks
