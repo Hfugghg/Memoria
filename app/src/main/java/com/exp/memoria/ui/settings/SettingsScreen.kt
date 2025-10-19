@@ -231,6 +231,21 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
                 ) // 修正 Checkbox 的语法错误
             }
 
+            // 流式输出开关
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text("流式输出")
+                Switch(
+                    checked = settings.isStreamingEnabled,
+                    onCheckedChange = viewModel::onIsStreamingEnabledChange
+                )
+            }
+
             Spacer(modifier = Modifier.height(16.dp))
             Text("LLM 高级设置", style = MaterialTheme.typography.titleLarge)
             Spacer(modifier = Modifier.height(8.dp))

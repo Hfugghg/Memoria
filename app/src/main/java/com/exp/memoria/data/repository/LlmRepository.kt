@@ -13,7 +13,9 @@ import com.exp.memoria.data.remote.dto.SafetySetting
 import com.exp.memoria.ui.settings.JsonSchemaProperty
 import com.exp.memoria.ui.settings.JsonSchemaPropertyType
 import com.exp.memoria.ui.settings.StringFormat
-import com.exp.memoria.ui.settings.HarmBlockThreshold // 导入 HarmBlockThreshold
+import com.exp.memoria.ui.settings.HarmBlockThreshold
+import kotlinx.coroutines.flow.Flow 
+import kotlinx.coroutines.flow.flow 
 import kotlinx.coroutines.flow.first
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -24,6 +26,9 @@ import kotlinx.serialization.json.putJsonObject
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.add
 import kotlinx.serialization.json.buildJsonArray
+import kotlinx.serialization.decodeFromString 
+import com.exp.memoria.data.remote.dto.LlmResponse 
+import java.util.concurrent.CancellationException
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -50,7 +55,14 @@ class LlmRepository @Inject constructor(
     private val baseLlmApiUrl = "https://generativelanguage.googleapis.com/"
 
     // 配置 Json 序列化器，使其编码所有默认值（包括 null）
-    private val jsonEncoder = Json { encodeDefaults = true }
+    private val jsonEncoder = Json {
+        // 启用忽略未知键，这是解决 'usageMetadata' 报错的关键！
+        ignoreUnknownKeys = true
+        // 保持格式化，方便调试
+        prettyPrint = true
+        // 允许编码/解码非结构化的 JSON 原始值（例如，纯字符串）
+        allowStructuredMapKeys = false
+    }
 
     // 定义标准安全类别
     private companion object {
@@ -70,7 +82,7 @@ class LlmRepository @Inject constructor(
 
     /**
      * 从 SettingsRepository 异步获取当前配置的聊天模型名称。
-     * 这是访问 LLM 服务所必需的。\
+     * 这是访问 LLM 服务所必需的。
      */
     private suspend fun getChatModel(): String {
         val model = settingsRepository.settingsFlow.first().chatModel
@@ -143,18 +155,21 @@ class LlmRepository @Inject constructor(
     }
 
     /**
-     * 调用 LLM API 以获取对话回复。
+     * 调用 LLM API 以获取对话回复，支持流式和非流式输出。
      *
      * @param history 一个包含完整对话历史的 `ChatContent` 列表。
-     * @return 从 LLM 返回的文本回复。如果请求失败或响应格式不正确，则返回一个默认的错误消息。
+     * @param isStreaming 是否开启流式输出。默认为 `false` (非流式)。
+     * @return 一个 `Flow<String>`，用于接收来自 LLM 的文本回复片段。
+     *         如果 `isStreaming` 为 `false`，则 `Flow` 只会发出一个完整的回复。
      */
-    suspend fun getChatResponse(history: List<ChatContent>): String {
+    suspend fun chatResponse(history: List<ChatContent>, isStreaming: Boolean = false): Flow<String> = flow {
         val currentSettings = settingsRepository.settingsFlow.first()
 
         val effectiveResponseSchema: JsonElement? = if (currentSettings.isGraphicalSchemaMode) {
+            // 使用宽松的 jsonEncoder 来处理 JSON 元素
             convertGraphicalSchemaToJson(currentSettings.graphicalResponseSchema)
         } else {
-            currentSettings.responseSchema.takeIf { it.isNotBlank() }?.let { Json.parseToJsonElement(it) }
+            currentSettings.responseSchema.takeIf { it.isNotBlank() }?.let { jsonEncoder.parseToJsonElement(it) } // 使用宽松的 jsonEncoder
         }
 
         val responseMimeType = if (effectiveResponseSchema != null && effectiveResponseSchema != JsonNull) "application/json" else "text/plain"
@@ -181,16 +196,106 @@ class LlmRepository @Inject constructor(
         val modelId = getChatModel()
         val apiKey = getApiKey()
 
-        Log.d("LlmRepository", "LLM 聊天请求 contents: ${jsonEncoder.encodeToString(request.contents)}")
-        // 重新添加打印完整请求体的日志
-        Log.d("LlmRepository", "LLM 聊天请求体: ${jsonEncoder.encodeToString(request)}")
+        if (isStreaming) {
+            Log.d("LlmRepository", "LLM 聊天流式请求体: ${jsonEncoder.encodeToString(request)}")
+            val requestUrl = "${baseLlmApiUrl}v1beta/models/${modelId}:streamGenerateContent?alt=sse&key=${apiKey}"
+            Log.d("LlmRepository", "LLM 聊天流式请求 URL: $requestUrl")
 
-        val requestUrl = "${baseLlmApiUrl}v1beta/models/$modelId:generateContent?key=$apiKey"
-        Log.d("LlmRepository", "LLM 聊天请求 URL: $requestUrl")
+            try {
+                val response = llmApiService.streamChatResponse(modelId, apiKey, request)
 
-        val response = llmApiService.getChatResponse(modelId, apiKey, request)
-        Log.d("LlmRepository", "LLM 聊天响应: $response")
-        return response.candidates.firstOrNull()?.content?.parts?.firstOrNull()?.text ?: "抱歉，无法获取回复。"
+                if (response.isSuccessful) {
+                    val responseBody = response.body()
+                    if (responseBody != null) {
+                        val inputStream = responseBody.byteStream()
+                        val reader = inputStream.bufferedReader()
+
+                        try {
+                            var line: String?
+                            while (reader.readLine().also { line = it } != null) {
+                                val currentLine = line ?: continue
+
+                                // 跳过空行和注释行
+                                if (currentLine.isBlank() || currentLine.startsWith(":")) {
+                                    continue
+                                }
+
+                                // 处理 SSE 格式的数据行
+                                if (currentLine.startsWith("data: ")) {
+                                    val jsonString = currentLine.substringAfter("data: ").trim()
+
+                                    // 检查结束标记
+                                    if (jsonString == "[DONE]") {
+                                        Log.d("LlmRepository", "收到流式结束标记 [DONE]")
+                                        break
+                                    }
+
+                                    // 跳过空的数据
+                                    if (jsonString.isBlank()) {
+                                        continue
+                                    }
+
+                                    try {
+                                        // 关键修改点 3: 使用宽松的 jsonEncoder 进行解码
+                                        val llmResponse = jsonEncoder.decodeFromString<LlmResponse>(jsonString)
+                                        val text = llmResponse.candidates
+                                            ?.firstOrNull()
+                                            ?.content
+                                            ?.parts
+                                            ?.firstOrNull()
+                                            ?.text
+
+                                        if (!text.isNullOrEmpty()) {
+                                            Log.d("LlmRepository", "收到流式文本片段: $text")
+                                            // 逐字输出：每次 emit 都会发送一个文本片段，在 UI 层实现逐字效果
+                                            emit(text)
+                                        } else {
+                                            Log.d("LlmRepository", "流式响应文本为空")
+                                        }
+                                    } catch (e: Exception) {
+                                        // 这里的 E 级日志会捕获到 'usageMetadata' 的报错，但现在应该能解决
+                                        Log.e("LlmRepository", "解析流式响应 JSON 片段失败: $jsonString", e)
+                                    }
+                                }
+                            }
+                        } finally {
+                            reader.close()
+                            inputStream.close()
+                        }
+                    } else {
+                        Log.w("LlmRepository", "流式响应体为空 (body is null)")
+                        emit("抱歉，收到了空的流式响应体。")
+                    }
+                } else {
+                    val errorBody = response.errorBody()?.string() ?: "无错误详情"
+                    Log.e("LlmRepository", "获取 LLM 聊天流式响应失败，状态码: ${response.code()}, 错误: $errorBody")
+                    emit("抱歉，无法获取流式回复。错误码: ${response.code()}, 错误: $errorBody")
+                }
+
+            } catch (e: Exception) {
+                if (e is CancellationException) throw e
+                Log.e("LlmRepository", "获取 LLM 聊天流式响应时发生异常", e)
+                emit("抱歉，无法获取流式回复。错误：${e.localizedMessage}")
+            }
+        } else {
+            Log.d("LlmRepository", "LLM 聊天请求体: ${jsonEncoder.encodeToString(request)}")
+            val requestUrl = "${baseLlmApiUrl}v1beta/models/$modelId:generateContent?key=$apiKey"
+            Log.d("LlmRepository", "LLM 聊天请求 URL: $requestUrl")
+
+            try {
+                val response = llmApiService.getChatResponse(modelId, apiKey, request)
+                Log.d("LlmRepository", "LLM 聊天响应: $response")
+                emit(response.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text ?: "抱歉，无法获取回复。")
+            } catch (e: CancellationException) {
+                // This is an expected cancellation from the downstream collector (e.g., .first()).
+                // We should not log this as an error or emit an error message. We just let the flow terminate gracefully.
+                Log.d("LlmRepository", "Flow was cancelled by the collector, which is expected for non-streaming calls.")
+            } catch (e: Exception) {
+                // This is a real, unexpected error (e.g., network issue, JSON parsing error).
+                Log.e("LlmRepository", "获取 LLM 聊天响应失败", e)
+                emit("抱歉，无法获取回复。错误：${e.localizedMessage}")
+            }
+        }
     }
 
     /**
@@ -246,7 +351,7 @@ class LlmRepository @Inject constructor(
 
         val response = llmApiService.getSummary(modelId, apiKey, request)
         Log.d("LlmRepository", "LLM 摘要响应: $response")
-        return response.candidates.firstOrNull()?.content?.parts?.firstOrNull()?.text ?: "无法生成摘要。"
+        return response.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text ?: "无法生成摘要。"
     }
 
     /**

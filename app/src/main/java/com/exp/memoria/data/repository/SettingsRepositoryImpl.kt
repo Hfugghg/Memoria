@@ -33,7 +33,8 @@ class SettingsRepositoryImpl @Inject constructor(
         val SEXUALLY_EXPLICIT = floatPreferencesKey("sexually_explicit")
         val DANGEROUS_CONTENT = floatPreferencesKey("dangerous_content")
         val RESPONSE_SCHEMA = stringPreferencesKey("response_schema")
-        val GRAPHICAL_RESPONSE_SCHEMA = stringPreferencesKey("graphical_response_schema") // Add graphical_response_schema key
+        val GRAPHICAL_RESPONSE_SCHEMA = stringPreferencesKey("graphical_response_schema")
+        val IS_STREAMING_ENABLED = booleanPreferencesKey("is_streaming_enabled") // 添加此键
     }
 
     override val settingsFlow = dataStore.data.map {
@@ -53,14 +54,14 @@ class SettingsRepositoryImpl @Inject constructor(
             try {
                 Json.decodeFromString<List<JsonSchemaProperty>>(graphicalResponseSchemaString)
             } catch (e: Exception) {
-                // Log error or handle gracefully
                 emptyList()
             }
         } else {
             emptyList()
         }
+        val isStreamingEnabled = it[PreferencesKeys.IS_STREAMING_ENABLED] ?: false // 读取此值
 
-        Settings(apiKey, chatModel, temperature, topP, topK, useLocalStorage, harassment, hateSpeech, sexuallyExplicit, dangerousContent, responseSchema, graphicalResponseSchema)
+        Settings(apiKey, chatModel, temperature, topP, topK, useLocalStorage, harassment, hateSpeech, sexuallyExplicit, dangerousContent, responseSchema, graphicalResponseSchema, isStreamingEnabled = isStreamingEnabled)
     }
 
     override suspend fun updateApiKey(apiKey: String) {
@@ -113,5 +114,9 @@ class SettingsRepositoryImpl @Inject constructor(
 
     override suspend fun updateGraphicalResponseSchema(schema: List<JsonSchemaProperty>) {
         dataStore.edit { it[PreferencesKeys.GRAPHICAL_RESPONSE_SCHEMA] = Json.encodeToString(schema) }
+    }
+
+    override suspend fun updateIsStreamingEnabled(isStreamingEnabled: Boolean) { // 实现此方法
+        dataStore.edit { it[PreferencesKeys.IS_STREAMING_ENABLED] = isStreamingEnabled }
     }
 }

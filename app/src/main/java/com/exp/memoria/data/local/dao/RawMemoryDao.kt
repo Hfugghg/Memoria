@@ -2,16 +2,14 @@ package com.exp.memoria.data.local.dao
 
 import androidx.room.Dao
 import androidx.room.Insert
-import androidx.room.OnConflictStrategy
 import androidx.room.Query
-import com.exp.memoria.data.local.entity.ConversationInfo
 import com.exp.memoria.data.local.entity.RawMemory
 
 /**
  * [原始记忆数据访问对象 (DAO)]
  *
  * 职责:
- * 1. 定义与 "RawMemory" 表 [cite: 52] 交互的所有数据库操作方法。
+ * 1. 定义与 "raw_memory" 表 [cite: 52] 交互的所有数据库操作方法。
  * 2. 提供插入(Insert)一个新的问答对(Q&A)到 RawMemory 表的方法 [cite: 13]。
  * 3. 提供根据时间戳查询最近N条对话记录的方法，用于获取“热记忆” [cite: 16]。
  * 4. 提供根据ID删除特定记忆的方法（为未来的用户管理功能做准备 [cite: 37]）。
@@ -29,7 +27,7 @@ import com.exp.memoria.data.local.entity.RawMemory
  */
 @Dao
 interface RawMemoryDao {
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Insert
     suspend fun insert(rawMemory: RawMemory): Long
 
     @Query("SELECT * FROM raw_memory WHERE id = :id")

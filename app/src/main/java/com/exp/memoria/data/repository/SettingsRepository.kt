@@ -18,4 +18,5 @@ interface SettingsRepository {
     suspend fun updateDangerousContent(value: Float)
     suspend fun updateResponseSchema(responseSchema: String)
     suspend fun updateGraphicalResponseSchema(schema: List<JsonSchemaProperty>)
+    suspend fun updateIsStreamingEnabled(isStreamingEnabled: Boolean) // 添加此方法
 }

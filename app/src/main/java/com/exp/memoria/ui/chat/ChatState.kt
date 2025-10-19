@@ -1,14 +1,21 @@
 package com.exp.memoria.ui.chat
 
+import java.util.UUID
+
 /**
  * [聊天消息数据类]
  *
  * 代表聊天界面中的一条单独消息。
  *
+ * @property id 一个唯一的标识符，用于在列表中高效地更新和识别消息。
  * @property text 消息的文本内容。
  * @property isFromUser 一个布尔值，如果消息来自用户，则为 true；如果来自 AI 模型，则为 false。
  */
-data class ChatMessage(val text: String, val isFromUser: Boolean)
+data class ChatMessage(
+    val id: UUID = UUID.randomUUID(),
+    val text: String,
+    val isFromUser: Boolean
+)
 
 /**
  * [聊天界面状态数据类]
