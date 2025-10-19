@@ -44,7 +44,8 @@ object DatabaseModule {
             context,
             MemoriaDatabase::class.java,
             "memoria_database"
-        ).addCallback(MemoriaDatabase.FTS_TABLE_CALLBACK)
+        ).addMigrations(MemoriaDatabase.MIGRATION_1_2, MemoriaDatabase.MIGRATION_2_3) // 添加数据库迁移
+            .addCallback(MemoriaDatabase.FTS_TABLE_CALLBACK)
             .build()
     }
 

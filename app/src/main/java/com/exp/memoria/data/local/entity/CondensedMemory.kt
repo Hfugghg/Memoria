@@ -38,6 +38,12 @@ import androidx.room.PrimaryKey
     foreignKeys = [
         ForeignKey(
             entity = RawMemory::class,
+            parentColumns = ["conversationId"],
+            childColumns = ["conversationId"],
+            onDelete = ForeignKey.CASCADE
+        ),
+        ForeignKey(
+            entity = RawMemory::class,
             parentColumns = ["id"],
             childColumns = ["raw_memory_id"],
             onDelete = ForeignKey.CASCADE
@@ -47,8 +53,10 @@ import androidx.room.PrimaryKey
 data class CondensedMemory(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0, // [cite: 62]
-@ColumnInfo(name = "raw_memory_id", index = true)
+    @ColumnInfo(name = "raw_memory_id", index = true)
     val raw_memory_id: Long, // [cite: 63]
+    @ColumnInfo(name = "conversationId", index = true)
+    val conversationId: String, // 新增的 conversationId 字段
     val summary_text: String, // [cite: 64]
     val vector_int8: ByteArray?, // [cite: 66]
     val status: String, // [cite: 67]
@@ -63,6 +71,7 @@ data class CondensedMemory(
 
         if (id != other.id) return false
         if (raw_memory_id != other.raw_memory_id) return false
+        if (conversationId != other.conversationId) return false // 添加 conversationId 比较
         if (summary_text != other.summary_text) return false
         if (vector_int8 != null) {
             if (other.vector_int8 == null) return false
@@ -77,6 +86,7 @@ data class CondensedMemory(
     override fun hashCode(): Int {
         var result = id.hashCode()
         result = 31 * result + raw_memory_id.hashCode()
+        result = 31 * result + conversationId.hashCode() // 添加 conversationId hash
         result = 31 * result + summary_text.hashCode()
         result = 31 * result + (vector_int8?.contentHashCode() ?: 0)
         result = 31 * result + status.hashCode()

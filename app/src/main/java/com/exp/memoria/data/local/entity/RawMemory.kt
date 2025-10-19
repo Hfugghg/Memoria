@@ -2,6 +2,7 @@ package com.exp.memoria.data.local.entity
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey
+import androidx.room.Index // 导入 Index
 import com.exp.memoria.data.Content
 
 /**
@@ -18,7 +19,10 @@ import com.exp.memoria.data.Content
  * - RawMemoryDao 使用这个类作为其查询和插入操作的数据模型。
  */
 
-@Entity(tableName = "raw_memory")
+@Entity(
+    tableName = "raw_memory",
+    indices = [Index(value = ["conversationId"], unique = true)] // 为 conversationId 添加唯一索引
+)
 data class RawMemory(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,

@@ -51,6 +51,9 @@ interface CondensedMemoryDao {
 
     @Query("SELECT raw_memory_id, vector_int8 FROM condensed_memory WHERE raw_memory_id IN (:ids)")
     suspend fun getVectorsByIds(ids: List<Long>): List<MemoryVector>
+
+    @Query("DELETE FROM condensed_memory WHERE conversationId = :conversationId")
+    suspend fun deleteByConversationId(conversationId: String)
 }
 
 data class MemoryVector(

@@ -1,6 +1,7 @@
 package com.exp.memoria.data.remote.dto
 
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonElement // 添加这行导入
 
 /**
  * [LLM 对话/摘要 API的请求体]
@@ -8,7 +9,7 @@ import kotlinx.serialization.Serializable
  * 职责:
  * 1.  精确定义发往 Gemini `generateContent` API 的JSON请求体结构。
  * 2.  **类型安全**: 此 DTO 现在明确规定其`contents`列表必须包含`ChatContent`对象。`ChatContent`类强制要求包含`role`字段，从而在编译时就保证了请求的合规性，避免了运行时的`HTTP 400`错误。
- * 3.  **可扩展性**: 包含对更高级功能的占位，如`systemInstruction`, `tools`, `safetySettings`, 和 `generationConfig`，允许未来在不破坏现有代码的情况下轻松添加这些功能。
+ * 3.  **可扩展性**: 包含对更高级功能的占位，如`systemInstruction`, `tools`, `toolConfig`, `safetySettings`, 和 `generationConfig`，允许未来在不破坏现有代码的情况下轻松添加这些功能。
  *
  * 关联:
  * -  由`LlmRepository`在调用`getChatResponse`或`getSummary`时创建实例。
@@ -68,20 +69,24 @@ data class ToolConfig(
  * [安全设置]
  *
  * 用于配置 API 的安全过滤器，可以调整对不同类别（如骚扰、仇恨言论等）内容的屏蔽阈值。
- * 目前是一个占位符，为将来的功能扩展做准备。
  */
 @Serializable
 data class SafetySetting(
-    val placeholder: String? = null // 尚未实现
+    val category: String,
+    val threshold: String
 )
 
 /**
  * [生成配置]
  *
- * 用于控制模型生成响应的参数，例如温度 (temperature)、Top-P、最大输出长度等。
- * 目前是一个占位符，为将来的功能扩展做准备。
+ * 用于控制模型生成响应的参数，例如温度 (temperature)、Top-P、Top-K、最大输出长度等。
+ * 可以在这里添加 responseMimeType 和 responseSchema。
  */
 @Serializable
 data class GenerationConfig(
-    val placeholder: String? = null // 尚未实现
+    val temperature: Float? = null,
+    val topP: Float? = null,
+    val topK: Int? = null,
+    val responseMimeType: String? = null,
+    val responseSchema: JsonElement? = null
 )
