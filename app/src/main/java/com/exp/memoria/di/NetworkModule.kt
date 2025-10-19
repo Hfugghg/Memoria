@@ -1,5 +1,6 @@
 package com.exp.memoria.di
 
+import android.util.Log
 import com.exp.memoria.data.remote.api.LlmApiService
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
 import dagger.Module
@@ -7,8 +8,11 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import kotlinx.serialization.json.Json
+import okhttp3.ConnectionSpec
+import okhttp3.Interceptor
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
+import okhttp3.TlsVersion
 import retrofit2.Retrofit
 import java.util.concurrent.TimeUnit
 import javax.inject.Singleton
@@ -32,7 +36,26 @@ object NetworkModule {
     @Provides
     @Singleton
     fun provideOkHttpClient(): OkHttpClient {
+        // 关键修复：添加现代化的 TLS 配置以解决 SSLHandshakeException
+        val spec = ConnectionSpec.Builder(ConnectionSpec.MODERN_TLS)
+            .tlsVersions(TlsVersion.TLS_1_3, TlsVersion.TLS_1_2)
+            .build()
+
+        // 临时调试：添加一个安全的拦截器，只打印响应头，不影响流
+        val headerLoggingInterceptor = Interceptor { chain ->
+            val request = chain.request()
+            val response = chain.proceed(request)
+            // 只在流式请求时打印日志以减少干扰
+            if (request.url.toString().contains("streamGenerateContent")) {
+                Log.d("OkHttpStreamDebug", "Response for ${request.url}: Code=${response.code}")
+                Log.d("OkHttpStreamDebug", "Headers:\n${response.headers}")
+            }
+            response
+        }
+
         return OkHttpClient.Builder()
+            .addInterceptor(headerLoggingInterceptor) // 添加自定义拦截器
+            .connectionSpecs(listOf(spec, ConnectionSpec.CLEARTEXT))
             .readTimeout(3, TimeUnit.MINUTES)
             .connectTimeout(3, TimeUnit.MINUTES)
             .writeTimeout(3, TimeUnit.MINUTES)

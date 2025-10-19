@@ -97,7 +97,10 @@ fun ChatScreen(
                 .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            items(uiState.messages) { message ->
+            items(
+                items = uiState.messages,
+                key = { message -> message.id } // 使用唯一的ID作为key
+            ) { message ->
                 MessageBubble(message = message)
             }
             if (uiState.isLoading) {

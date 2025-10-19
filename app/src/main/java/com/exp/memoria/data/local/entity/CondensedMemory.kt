@@ -38,12 +38,6 @@ import androidx.room.PrimaryKey
     foreignKeys = [
         ForeignKey(
             entity = RawMemory::class,
-            parentColumns = ["conversationId"],
-            childColumns = ["conversationId"],
-            onDelete = ForeignKey.CASCADE
-        ),
-        ForeignKey(
-            entity = RawMemory::class,
             parentColumns = ["id"],
             childColumns = ["raw_memory_id"],
             onDelete = ForeignKey.CASCADE

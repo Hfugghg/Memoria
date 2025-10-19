@@ -1,8 +1,6 @@
 package com.exp.memoria.data.repository
 
 import android.util.Log
-import com.exp.memoria.data.Content
-import com.exp.memoria.data.Part
 import com.exp.memoria.data.local.dao.CondensedMemoryDao
 import com.exp.memoria.data.local.dao.ConversationHeaderDao
 import com.exp.memoria.data.local.dao.RawMemoryDao
@@ -58,39 +56,47 @@ class MemoryRepositoryImpl @Inject constructor(
 ) : MemoryRepository {
 
     override suspend fun saveNewMemory(query: String, response: String, conversationId: String): Long {
+        val now = System.currentTimeMillis()
+
+        // Ensure conversation header exists or create a new one, and update timestamp
         if (conversationHeaderDao.countConversationHeaders(conversationId) == 0) {
-            val now = System.currentTimeMillis()
             conversationHeaderDao.insert(ConversationHeader(conversationId, "新对话", now, now))
         } else {
-            val existingHeader = conversationHeaderDao.getConversationHeaderById(conversationId)
-            existingHeader?.let {
-                conversationHeaderDao.update(it.copy(lastUpdateTimestamp = System.currentTimeMillis()))
+            conversationHeaderDao.getConversationHeaderById(conversationId)?.let {
+                conversationHeaderDao.update(it.copy(lastUpdateTimestamp = now))
             }
         }
 
-        val newContents = listOf(
-            Content.User(parts = listOf(Part.Text(query))),
-            Content.Model(parts = listOf(Part.Text(response)))
-        )
-
-        val newMemory = RawMemory(
+        // Insert user message (query)
+        val userMemory = RawMemory(
             conversationId = conversationId,
-            contents = newContents,
-            timestamp = System.currentTimeMillis()
+            sender = "user",
+            text = query,
+            timestamp = now - 1 // To preserve order
         )
-        val rawMemoryId = rawMemoryDao.insert(newMemory)
+        rawMemoryDao.insert(userMemory)
 
+        // Insert model message (response)
+        val modelMemory = RawMemory(
+            conversationId = conversationId,
+            sender = "model",
+            text = response,
+            timestamp = now
+        )
+        val modelMemoryId = rawMemoryDao.insert(modelMemory)
+
+        // Create a condensed memory linked to the model's response
         val condensedMemory = CondensedMemory(
-            raw_memory_id = rawMemoryId,
-            conversationId = conversationId, // 修复：添加 conversationId 参数
+            raw_memory_id = modelMemoryId,
+            conversationId = conversationId,
             summary_text = "",
             vector_int8 = null,
             status = "NEW",
-            timestamp = System.currentTimeMillis()
+            timestamp = now
         )
         condensedMemoryDao.insert(condensedMemory)
 
-        return rawMemoryId
+        return modelMemoryId
     }
 
     override suspend fun getMemoryById(id: Long): RawMemory? {

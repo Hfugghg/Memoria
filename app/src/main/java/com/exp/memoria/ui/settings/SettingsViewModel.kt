@@ -182,6 +182,16 @@ class SettingsViewModel @Inject constructor(
     }
 
     /**
+     * 当“流式输出”开关状态改变时调用。
+     * @param isStreamingEnabled 新的布尔值。
+     */
+    fun onIsStreamingEnabledChange(isStreamingEnabled: Boolean) {
+        viewModelScope.launch {
+            settingsRepository.updateIsStreamingEnabled(isStreamingEnabled)
+        }
+    }
+
+    /**
      * 当“骚扰”安全等级滑块值改变时调用。
      * @param value 新的阈值。
      */
