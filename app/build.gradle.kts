@@ -80,12 +80,6 @@ android {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
     }
-
-    testOptions {
-        unitTests.all {
-            it.useJUnitPlatform()
-        }
-    }
 }
 
 dependencies {
@@ -97,7 +91,7 @@ dependencies {
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
-//    testImplementation(libs.junit)
+    testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))
@@ -142,7 +136,4 @@ dependencies {
     // DataStore
     implementation("androidx.datastore:datastore-preferences:1.1.0-beta01")
     implementation("androidx.datastore:datastore-core:1.1.0-beta01")
-
-    testImplementation("org.junit.jupiter:junit-jupiter-api:6.0.0")
-    testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:6.0.0")
 }
