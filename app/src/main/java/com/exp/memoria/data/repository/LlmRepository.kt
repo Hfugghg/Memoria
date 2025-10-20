@@ -33,6 +33,17 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
+ * 封装聊天响应的密封类，用于区分成功的数据块和错误信息。
+ * 这允许上游 (ViewModel) 正确处理 UI 显示和数据库存储。
+ */
+sealed class ChatChunkResult {
+    /** 成功的文本块 */
+    data class Success(val text: String) : ChatChunkResult()
+    /** 发生的错误 */
+    data class Error(val message: String) : ChatChunkResult()
+}
+
+/**
  * [LLM 数据仓库]
  *
  * 职责:
@@ -52,6 +63,7 @@ class LlmRepository @Inject constructor(
     private val settingsRepository: SettingsRepository
 ) {
 
+    // ... [此类中的其他代码保持不变] ...
     private val baseLlmApiUrl = "https://generativelanguage.googleapis.com/"
 
     // 配置 Json 序列化器，使其编码所有默认值（包括 null）
@@ -217,10 +229,10 @@ class LlmRepository @Inject constructor(
      *
      * @param history 一个包含完整对话历史的 `ChatContent` 列表。
      * @param isStreaming 是否开启流式输出。默认为 `false` (非流式)。
-     * @return 一个 `Flow<String>`，用于接收来自 LLM 的文本回复片段。
-     * 如果 `isStreaming` 为 `false`，则 `Flow` 只会发出一个完整的回复。
+     * @return 一个 `Flow<ChatChunkResult>`，用于接收来自 LLM 的文本回复片段或错误。
+     * 如果 `isStreaming` 为 `false`，则 `Flow` 只会发出一个完整的 `Success` 或 `Error`。
      */
-    fun chatResponse(history: List<ChatContent>, isStreaming: Boolean = false): Flow<String> = flow {
+    fun chatResponse(history: List<ChatContent>, isStreaming: Boolean = false): Flow<ChatChunkResult> = flow {
         // 使用重构后的函数获取组件
         val components = buildLlmRequestComponents()
         val generationConfig = components.generationConfig
@@ -284,13 +296,23 @@ class LlmRepository @Inject constructor(
 
                                         if (!text.isNullOrEmpty()) {
                                             Log.d("LlmRepository", "收到流式文本片段: $text")
-                                            // 逐字输出：每次 emit 都会发送一个文本片段，在 UI 层实现逐字效果
-                                            emit(text)
+                                            emit(ChatChunkResult.Success(text))
                                         } else {
-                                            Log.d("LlmRepository", "流式响应文本为空")
+                                            // [修正] 移除了 promptFeedback 检查。
+                                            // 如果响应块被解析但文本为空，这可能是一个安全阻止。
+                                            // 我们发出一个错误，让 ViewModel 停止并显示。
+                                            if (llmResponse.candidates?.isNotEmpty() == true) {
+                                                val errorMsg = "响应被阻止或为空。"
+                                                Log.w("LlmRepository", "流式响应块文本为空，可能被阻止。")
+                                                emit(ChatChunkResult.Error(errorMsg))
+                                            } else {
+                                                // 可能是其他类型的 SSE 消息，忽略。
+                                                Log.d("LlmRepository", "流式响应无有效候选项。")
+                                            }
                                         }
                                     } catch (e: Exception) {
                                         Log.e("LlmRepository", "解析流式响应 JSON 片段失败: $jsonString", e)
+                                        emit(ChatChunkResult.Error("解析响应数据失败: ${e.localizedMessage}"))
                                     }
                                 }
                             }
@@ -300,18 +322,18 @@ class LlmRepository @Inject constructor(
                         }
                     } else {
                         Log.w("LlmRepository", "流式响应体为空 (body is null)")
-                        emit("抱歉，收到了空的流式响应体。")
+                        emit(ChatChunkResult.Error("抱歉，收到了空的流式响应体。"))
                     }
                 } else {
                     val errorBody = response.errorBody()?.string() ?: "无错误详情"
                     Log.e("LlmRepository", "获取 LLM 聊天流式响应失败，状态码: ${response.code()}, 错误: $errorBody")
-                    emit("抱歉，无法获取流式回复。错误码: ${response.code()}, 错误: $errorBody")
+                    emit(ChatChunkResult.Error("抱歉，无法获取流式回复。错误码: ${response.code()}, 错误: $errorBody"))
                 }
 
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
                 Log.e("LlmRepository", "获取 LLM 聊天流式响应时发生异常", e)
-                emit("抱歉，无法获取流式回复。错误：${e.localizedMessage}")
+                emit(ChatChunkResult.Error("抱歉，无法获取流式回复。错误：${e.localizedMessage}"))
             }
         } else {
             Log.d("LlmRepository", "LLM 聊天请求体: ${jsonEncoder.encodeToString(request)}")
@@ -321,15 +343,23 @@ class LlmRepository @Inject constructor(
             try {
                 val response = llmApiService.getChatResponse(modelId, apiKey, request)
                 Log.d("LlmRepository", "LLM 聊天响应: $response")
-                emit(response.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text ?: "抱歉，无法获取回复。")
+
+                val text = response.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text
+
+                if (!text.isNullOrEmpty()) {
+                    emit(ChatChunkResult.Success(text))
+                } else {
+                    // [修正] 移除了 promptFeedback 检查。
+                    // 响应成功，但文本为空。这可能是被阻止了。
+                    val errorMsg = "抱歉，无法获取回复（响应为空或被阻止）。"
+                    Log.w("LlmRepository", "非流式响应文本为空: $errorMsg")
+                    emit(ChatChunkResult.Error(errorMsg))
+                }
             } catch (e: CancellationException) {
-                // This is an expected cancellation from the downstream collector (e.g., .first()).
-                // We should not log this as an error or emit an error message. We just let the flow terminate gracefully.
                 Log.d("LlmRepository", "Flow was cancelled by the collector, which is expected for non-streaming calls.")
             } catch (e: Exception) {
-                // This is a real, unexpected error (e.g., network issue, JSON parsing error).
                 Log.e("LlmRepository", "获取 LLM 聊天响应失败", e)
-                emit("抱歉，无法获取回复。错误：${e.localizedMessage}")
+                emit(ChatChunkResult.Error("抱歉，无法获取回复。错误：${e.localizedMessage}"))
             }
         }
     }
@@ -341,7 +371,8 @@ class LlmRepository @Inject constructor(
      * @return 从 LLM 返回的摘要文本。如果请求失败或响应格式不正确，则返回一个默认的错误消息。
      */
     suspend fun getSummary(text: String): String {
-        // 使用重构后的函数获取组件
+        // ... [getSummary 函数保持不变，因为它不影响聊天流] ...
+        // ... [如果 getSummary 也需要这种错误处理，可以应用类似模式，但目前保持不变] ...
         val components = buildLlmRequestComponents()
         val generationConfig = components.generationConfig
         val safetySettings = components.safetySettings
@@ -382,6 +413,7 @@ class LlmRepository @Inject constructor(
      * @return 一个代表文本语义的浮点数列表（即向量）。如果请求失败，此函数可能会抛出异常。
      */
     suspend fun getEmbedding(text: String): List<Float> {
+        // ... [getEmbedding 函数保持不变] ...
         val request = EmbeddingRequest(
             content = EmbeddingContent(
                 parts = listOf(Part(text = text))
@@ -405,6 +437,7 @@ class LlmRepository @Inject constructor(
      * @return Pair<List<ModelDetail>, String?> 包含模型列表和下一页的令牌。
      */
     suspend fun getAvailableModels(apiKey: String, pageToken: String?): Pair<List<ModelDetail>, String?> {
+        // ... [getAvailableModels 函数保持不变] ...
         val requestUrl = "${baseLlmApiUrl}v1beta/models?key=$apiKey" + (pageToken?.let { "&pageToken=$it" } ?: "")
         Log.d("LlmRepository", "获取可用模型请求 URL: $requestUrl")
         Log.d("LlmRepository", "获取可用模型请求 pageToken: $pageToken")
