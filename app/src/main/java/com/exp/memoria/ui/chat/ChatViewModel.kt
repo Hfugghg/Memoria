@@ -23,7 +23,7 @@ import javax.inject.Inject
 import kotlinx.coroutines.delay
 
 /**
- * ChatViewModel
+ * [ChatViewModel]
  *
  * 职责:
  * 1. 作为UI(ChatScreen)和数据/业务逻辑层(Use Cases, Repositories)之间的桥梁，遵循MVVM架构。
@@ -33,11 +33,18 @@ import kotlinx.coroutines.delay
  * 5. 在收到新消息时，触发后台任务处理记忆。
  * 6. 处理流式响应：通过逐字更新UI状态并引入微小延迟，实现平滑的打字机效果，避免UI卡顿。
  *
- * @property getChatResponseUseCase 用于获取聊天回复的用例。
- * @property memoryRepository 用于操作记忆数据的仓库。
- * @property settingsRepository 用于获取应用设置的仓库。
- * @property application 应用上下文，用于访问WorkManager等。
- * @param savedStateHandle 用于处理进程重建后的状态保存和恢复。
+ * 关联:
+ * - `getChatResponseUseCase`: 用于获取聊天回复的用例。
+ * - `memoryRepository`: 用于操作记忆数据的仓库。
+ * - `settingsRepository`: 用于获取应用设置的仓库。
+ * - `application`: 应用上下文，用于访问WorkManager等。
+ * - `savedStateHandle`: 用于处理进程重建后的状态保存和恢复。
+ *
+ * 未实现的功能职责:
+ * - **加载更多历史消息**: 虽然有分页逻辑 (`loadMoreMessages`), 但没有提供给用户一个触发方式（例如，滚动到顶部时自动加载）。
+ * - **精细的错误处理**: 目前的错误处理只是在UI上显示一条通用错误消息，可以改进为针对不同错误类型（网络、API等）显示更具体的信息。
+ * - **取消响应**: 对于正在进行的流式响应，没有提供取消机制。
+ * - **完整的状态恢复**: 没有完全处理进程死亡后的状态恢复，例如，用户在输入框中但尚未发送的文本将会丢失。
  */
 @HiltViewModel
 class ChatViewModel @Inject constructor(

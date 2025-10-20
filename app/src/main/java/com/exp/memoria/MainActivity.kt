@@ -3,7 +3,11 @@ package com.exp.memoria
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -11,7 +15,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.exp.memoria.ui.chat.ChatScreen
 import com.exp.memoria.ui.chat.ConversationHistoryScreen
-import com.exp.memoria.ui.settings.SettingsScreen
+import com.exp.memoria.ui.settings.settingsscreen.SettingsScreen
 import com.exp.memoria.ui.theme.MemoriaTheme
 import dagger.hilt.android.AndroidEntryPoint
 
@@ -21,7 +25,12 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             MemoriaTheme {
-                MemoriaApp()
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background
+                ) {
+                    MemoriaApp()
+                }
             }
         }
     }
