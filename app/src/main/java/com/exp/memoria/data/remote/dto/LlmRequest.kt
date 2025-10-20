@@ -84,9 +84,76 @@ data class SafetySetting(
  */
 @Serializable
 data class GenerationConfig(
+    // 1. 随机性控制 (Randomness Control)
+    /**
+     * 控制回复的随机程度。较低的值（接近 0.0）生成更可预测、更确定的回复，
+     * 较高的值（接近 2.0）生成更多样、更有创意的回复。
+     */
     val temperature: Float? = null,
+
+    /**
+     * Top-P（或核采样）参数。模型从概率累加和达到此值的 token 集中选择下一个 token。
+     * 较低的值（接近 0.0）减少随机性。
+     */
     val topP: Float? = null,
+
+    /**
+     * Top-K 参数。模型从概率最高的 K 个 token 中选择下一个 token。
+     */
     val topK: Int? = null,
+
+    // 2. 输出长度和停止条件 (Length and Stopping)
+    /**
+     * 指定响应中可生成的最大 token 数量。
+     */
+    val maxOutputTokens: Int? = null,
+
+    /**
+     * 一个字符串列表，当模型在响应中遇到其中任何一个字符串时，将立即停止生成内容。
+     */
+    val stopSequences: List<String>? = null,
+
+    // 3. 结构化输出 (Structured Output)
+    /**
+     * 输出响应的 MIME 类型。例如，设置为 "application/json" 以启用 JSON 模式。
+     */
     val responseMimeType: String? = null,
-    val responseSchema: JsonElement? = null
+
+    /**
+     * 定义输出 JSON 数据的结构（如果 responseMimeType 设置为 "application/json"）。
+     * 它是符合 OpenAPI 3.0 规范的 JSON Schema 对象。
+     */
+    val responseSchema: JsonElement? = null,
+
+    // 4. Token 惩罚 (Token Penalization)
+    /**
+     * 【频率惩罚】
+     * 正值会根据一个 token 在当前生成内容中出现的“次数”来惩罚它。
+     * 出现次数越多，惩罚越大，从而减少“重复”的 token，有助于提高多样性。
+     */
+    val frequencyPenalty: Float? = null,
+
+    /**
+     * 【存在惩罚】
+     * 正值会根据一个 token 是否在当前生成内容中“存在”来惩罚它。
+     * 只要出现过一次，惩罚就会生效，不考虑出现次数。这有助于模型探讨更广泛的话题。
+     */
+    val presencePenalty: Float? = null,
+
+    // 5. 其他高级参数 (Other Advanced Parameters)
+    /**
+     * 指定要返回的响应变体（候选答案）数量。您将为所有候选的输出 token 付费。
+     * 范围通常为 1 到 8。
+     */
+    val candidateCount: Int? = null,
+
+    /**
+     * 用于采样的随机种子。设置此值可以提高给定输入下的响应的确定性（可复现性）。
+     */
+    val seed: Int? = null,
+
+    /**
+     * 如果为 true，则在响应中导出输出 token 的对数概率（logprobs）。
+     */
+    val responseLogprobs: Boolean? = null
 )

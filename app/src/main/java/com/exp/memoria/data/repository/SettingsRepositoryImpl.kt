@@ -27,6 +27,14 @@ class SettingsRepositoryImpl @Inject constructor(
         val TEMPERATURE = floatPreferencesKey("temperature")
         val TOP_P = floatPreferencesKey("top_p")
         val TOP_K = intPreferencesKey("top_k")
+        val MAX_OUTPUT_TOKENS = intPreferencesKey("max_output_tokens")
+        val STOP_SEQUENCES = stringPreferencesKey("stop_sequences")
+        val RESPONSE_MIME_TYPE = stringPreferencesKey("response_mime_type")
+        val RESPONSE_LOGPROBS = booleanPreferencesKey("response_logprobs")
+        val FREQUENCY_PENALTY = floatPreferencesKey("frequency_penalty")
+        val PRESENCE_PENALTY = floatPreferencesKey("presence_penalty")
+        val CANDIDATE_COUNT = intPreferencesKey("candidate_count")
+        val SEED = intPreferencesKey("seed")
         val USE_LOCAL_STORAGE = booleanPreferencesKey("use_local_storage")
         val HARASSMENT = floatPreferencesKey("harassment")
         val HATE_SPEECH = floatPreferencesKey("hate_speech")
@@ -34,7 +42,7 @@ class SettingsRepositoryImpl @Inject constructor(
         val DANGEROUS_CONTENT = floatPreferencesKey("dangerous_content")
         val RESPONSE_SCHEMA = stringPreferencesKey("response_schema")
         val GRAPHICAL_RESPONSE_SCHEMA = stringPreferencesKey("graphical_response_schema")
-        val IS_STREAMING_ENABLED = booleanPreferencesKey("is_streaming_enabled") // 添加此键
+        val IS_STREAMING_ENABLED = booleanPreferencesKey("is_streaming_enabled")
     }
 
     override val settingsFlow = dataStore.data.map {
@@ -43,6 +51,14 @@ class SettingsRepositoryImpl @Inject constructor(
         val temperature = it[PreferencesKeys.TEMPERATURE] ?: 0.8f
         val topP = it[PreferencesKeys.TOP_P] ?: 0.95f
         val topK = it[PreferencesKeys.TOP_K]
+        val maxOutputTokens = it[PreferencesKeys.MAX_OUTPUT_TOKENS]
+        val stopSequences = it[PreferencesKeys.STOP_SEQUENCES] ?: ""
+        val responseMimeType = it[PreferencesKeys.RESPONSE_MIME_TYPE] ?: ""
+        val responseLogprobs = it[PreferencesKeys.RESPONSE_LOGPROBS] ?: false
+        val frequencyPenalty = it[PreferencesKeys.FREQUENCY_PENALTY] ?: 0.0f
+        val presencePenalty = it[PreferencesKeys.PRESENCE_PENALTY] ?: 0.0f
+        val candidateCount = it[PreferencesKeys.CANDIDATE_COUNT] ?: 1
+        val seed = it[PreferencesKeys.SEED]
         val useLocalStorage = it[PreferencesKeys.USE_LOCAL_STORAGE] ?: true
         val harassment = it[PreferencesKeys.HARASSMENT] ?: 0.0f
         val hateSpeech = it[PreferencesKeys.HATE_SPEECH] ?: 0.0f
@@ -59,9 +75,32 @@ class SettingsRepositoryImpl @Inject constructor(
         } else {
             emptyList()
         }
-        val isStreamingEnabled = it[PreferencesKeys.IS_STREAMING_ENABLED] ?: false // 读取此值
+        val isStreamingEnabled = it[PreferencesKeys.IS_STREAMING_ENABLED] ?: false
 
-        Settings(apiKey, chatModel, temperature, topP, topK, useLocalStorage, harassment, hateSpeech, sexuallyExplicit, dangerousContent, responseSchema, graphicalResponseSchema, isStreamingEnabled = isStreamingEnabled)
+        Settings(
+            apiKey = apiKey, 
+            chatModel = chatModel, 
+            temperature = temperature, 
+            topP = topP, 
+            topK = topK, 
+            maxOutputTokens = maxOutputTokens,
+            stopSequences = stopSequences,
+            responseMimeType = responseMimeType,
+            responseLogprobs = responseLogprobs,
+            frequencyPenalty = frequencyPenalty,
+            presencePenalty = presencePenalty,
+            candidateCount = candidateCount,
+            seed = seed,
+            useLocalStorage = useLocalStorage, 
+            harassment = harassment, 
+            hateSpeech = hateSpeech, 
+            sexuallyExplicit = sexuallyExplicit, 
+            dangerousContent = dangerousContent, 
+            responseSchema = responseSchema, 
+            graphicalResponseSchema = graphicalResponseSchema, 
+            isGraphicalSchemaMode = false, // isGraphicalSchemaMode 未持久化
+            isStreamingEnabled = isStreamingEnabled
+        )
     }
 
     override suspend fun updateApiKey(apiKey: String) {
@@ -85,6 +124,46 @@ class SettingsRepositoryImpl @Inject constructor(
             dataStore.edit { it[PreferencesKeys.TOP_K] = topK }
         } else {
             dataStore.edit { it.remove(PreferencesKeys.TOP_K) }
+        }
+    }
+
+    override suspend fun updateMaxOutputTokens(maxOutputTokens: Int?) {
+        if (maxOutputTokens != null) {
+            dataStore.edit { it[PreferencesKeys.MAX_OUTPUT_TOKENS] = maxOutputTokens }
+        } else {
+            dataStore.edit { it.remove(PreferencesKeys.MAX_OUTPUT_TOKENS) }
+        }
+    }
+
+    override suspend fun updateStopSequences(stopSequences: String) {
+        dataStore.edit { it[PreferencesKeys.STOP_SEQUENCES] = stopSequences }
+    }
+
+    override suspend fun updateResponseMimeType(responseMimeType: String) {
+        dataStore.edit { it[PreferencesKeys.RESPONSE_MIME_TYPE] = responseMimeType }
+    }
+
+    override suspend fun updateResponseLogprobs(responseLogprobs: Boolean) {
+        dataStore.edit { it[PreferencesKeys.RESPONSE_LOGPROBS] = responseLogprobs }
+    }
+
+    override suspend fun updateFrequencyPenalty(frequencyPenalty: Float) {
+        dataStore.edit { it[PreferencesKeys.FREQUENCY_PENALTY] = frequencyPenalty }
+    }
+
+    override suspend fun updatePresencePenalty(presencePenalty: Float) {
+        dataStore.edit { it[PreferencesKeys.PRESENCE_PENALTY] = presencePenalty }
+    }
+
+    override suspend fun updateCandidateCount(candidateCount: Int) {
+        dataStore.edit { it[PreferencesKeys.CANDIDATE_COUNT] = candidateCount }
+    }
+
+    override suspend fun updateSeed(seed: Int?) {
+        if (seed != null) {
+            dataStore.edit { it[PreferencesKeys.SEED] = seed }
+        } else {
+            dataStore.edit { it.remove(PreferencesKeys.SEED) }
         }
     }
 
@@ -116,7 +195,7 @@ class SettingsRepositoryImpl @Inject constructor(
         dataStore.edit { it[PreferencesKeys.GRAPHICAL_RESPONSE_SCHEMA] = Json.encodeToString(schema) }
     }
 
-    override suspend fun updateIsStreamingEnabled(isStreamingEnabled: Boolean) { // 实现此方法
+    override suspend fun updateIsStreamingEnabled(isStreamingEnabled: Boolean) {
         dataStore.edit { it[PreferencesKeys.IS_STREAMING_ENABLED] = isStreamingEnabled }
     }
 }
