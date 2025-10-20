@@ -27,6 +27,7 @@ class SettingsRepositoryImpl @Inject constructor(
         val TEMPERATURE = floatPreferencesKey("temperature")
         val TOP_P = floatPreferencesKey("top_p")
         val TOP_K = intPreferencesKey("top_k")
+        val MAX_OUTPUT_TOKENS = intPreferencesKey("max_output_tokens")
         val USE_LOCAL_STORAGE = booleanPreferencesKey("use_local_storage")
         val HARASSMENT = floatPreferencesKey("harassment")
         val HATE_SPEECH = floatPreferencesKey("hate_speech")
@@ -43,6 +44,7 @@ class SettingsRepositoryImpl @Inject constructor(
         val temperature = it[PreferencesKeys.TEMPERATURE] ?: 0.8f
         val topP = it[PreferencesKeys.TOP_P] ?: 0.95f
         val topK = it[PreferencesKeys.TOP_K]
+        val maxOutputTokens = it[PreferencesKeys.MAX_OUTPUT_TOKENS]
         val useLocalStorage = it[PreferencesKeys.USE_LOCAL_STORAGE] ?: true
         val harassment = it[PreferencesKeys.HARASSMENT] ?: 0.0f
         val hateSpeech = it[PreferencesKeys.HATE_SPEECH] ?: 0.0f
@@ -61,7 +63,23 @@ class SettingsRepositoryImpl @Inject constructor(
         }
         val isStreamingEnabled = it[PreferencesKeys.IS_STREAMING_ENABLED] ?: false // 读取此值
 
-        Settings(apiKey, chatModel, temperature, topP, topK, useLocalStorage, harassment, hateSpeech, sexuallyExplicit, dangerousContent, responseSchema, graphicalResponseSchema, isStreamingEnabled = isStreamingEnabled)
+        Settings(
+            apiKey = apiKey, 
+            chatModel = chatModel, 
+            temperature = temperature, 
+            topP = topP, 
+            topK = topK, 
+            maxOutputTokens = maxOutputTokens,
+            useLocalStorage = useLocalStorage, 
+            harassment = harassment, 
+            hateSpeech = hateSpeech, 
+            sexuallyExplicit = sexuallyExplicit, 
+            dangerousContent = dangerousContent, 
+            responseSchema = responseSchema, 
+            graphicalResponseSchema = graphicalResponseSchema, 
+            isGraphicalSchemaMode = false, // isGraphicalSchemaMode 未持久化
+            isStreamingEnabled = isStreamingEnabled
+        )
     }
 
     override suspend fun updateApiKey(apiKey: String) {
@@ -85,6 +103,14 @@ class SettingsRepositoryImpl @Inject constructor(
             dataStore.edit { it[PreferencesKeys.TOP_K] = topK }
         } else {
             dataStore.edit { it.remove(PreferencesKeys.TOP_K) }
+        }
+    }
+
+    override suspend fun updateMaxOutputTokens(maxOutputTokens: Int?) {
+        if (maxOutputTokens != null) {
+            dataStore.edit { it[PreferencesKeys.MAX_OUTPUT_TOKENS] = maxOutputTokens }
+        } else {
+            dataStore.edit { it.remove(PreferencesKeys.MAX_OUTPUT_TOKENS) }
         }
     }
 

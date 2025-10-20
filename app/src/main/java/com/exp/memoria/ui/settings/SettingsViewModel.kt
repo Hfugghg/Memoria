@@ -172,6 +172,16 @@ class SettingsViewModel @Inject constructor(
     }
 
     /**
+     * 当最大输出 Token 值改变时调用。
+     * @param maxOutputTokens 新的最大输出 Token 值。
+     */
+    fun onMaxOutputTokensChange(maxOutputTokens: Int?) {
+        viewModelScope.launch {
+            settingsRepository.updateMaxOutputTokens(maxOutputTokens)
+        }
+    }
+
+    /**
      * 当“使用本地存储”开关状态改变时调用。
      * @param useLocalStorage 新的布尔值。
      */

@@ -169,6 +169,25 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 modifier = Modifier.fillMaxWidth()
             )
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // 最大输出 Token 输入框
+            OutlinedTextField(
+                value = settings.maxOutputTokens?.toString() ?: "",
+                onValueChange = { newValue ->
+                    if (newValue.isNotBlank()) {
+                        val intValue = newValue.toIntOrNull()
+                        if (intValue != null) {
+                            viewModel.onMaxOutputTokensChange(intValue.coerceAtLeast(1))
+                        }
+                    } else {
+                        viewModel.onMaxOutputTokensChange(null) // 允许清空
+                    }
+                },
+                label = { Text("最大输出 Token (空或 >= 1)") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                modifier = Modifier.fillMaxWidth()
+            )
             Spacer(modifier = Modifier.height(16.dp))
 
             // Response Schema 设置区域

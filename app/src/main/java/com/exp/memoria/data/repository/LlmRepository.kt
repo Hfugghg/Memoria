@@ -6,28 +6,28 @@ import com.exp.memoria.data.remote.api.ModelDetail
 import com.exp.memoria.data.remote.dto.ChatContent
 import com.exp.memoria.data.remote.dto.EmbeddingContent
 import com.exp.memoria.data.remote.dto.EmbeddingRequest
-import com.exp.memoria.data.remote.dto.LlmRequest
-import com.exp.memoria.data.remote.dto.Part
 import com.exp.memoria.data.remote.dto.GenerationConfig
+import com.exp.memoria.data.remote.dto.LlmRequest
+import com.exp.memoria.data.remote.dto.LlmResponse
+import com.exp.memoria.data.remote.dto.Part
 import com.exp.memoria.data.remote.dto.SafetySetting
+import com.exp.memoria.ui.settings.HarmBlockThreshold
 import com.exp.memoria.ui.settings.JsonSchemaProperty
 import com.exp.memoria.ui.settings.JsonSchemaPropertyType
+import com.exp.memoria.ui.settings.Settings
 import com.exp.memoria.ui.settings.StringFormat
-import com.exp.memoria.ui.settings.HarmBlockThreshold
-import kotlinx.coroutines.flow.Flow 
-import kotlinx.coroutines.flow.flow 
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flow
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
-import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.put
-import kotlinx.serialization.json.putJsonObject
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.add
 import kotlinx.serialization.json.buildJsonArray
-import kotlinx.serialization.decodeFromString 
-import com.exp.memoria.data.remote.dto.LlmResponse 
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonObject
 import java.util.concurrent.CancellationException
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -71,6 +71,16 @@ class LlmRepository @Inject constructor(
         const val HARM_CATEGORY_SEXUALLY_EXPLICIT = "HARM_CATEGORY_SEXUALLY_EXPLICIT"
         const val HARM_CATEGORY_DANGEROUS_CONTENT = "HARM_CATEGORY_DANGEROUS_CONTENT"
     }
+
+    /**
+     * 数据类，用于封装构建 LLM 请求所需的三个核心组件：
+     * MIME 类型, 生成配置和安全设置。
+     */
+    private data class LlmRequestComponents(
+        val responseMimeType: String,
+        val generationConfig: GenerationConfig,
+        val safetySettings: List<SafetySetting>
+    )
 
     /**
      * 从 SettingsRepository 异步获取当前配置的 API 密钥。
@@ -155,38 +165,66 @@ class LlmRepository @Inject constructor(
     }
 
     /**
-     * 调用 LLM API 以获取对话回复，支持流式和非流式输出。
+     * 【重构代码提取】
+     * 从设置中构建 LLM 请求中可复用的配置组件：
+     * responseMimeType, GenerationConfig, 和 safetySettings。
      *
-     * @param history 一个包含完整对话历史的 `ChatContent` 列表。
-     * @param isStreaming 是否开启流式输出。默认为 `false` (非流式)。
-     * @return 一个 `Flow<String>`，用于接收来自 LLM 的文本回复片段。
-     *         如果 `isStreaming` 为 `false`，则 `Flow` 只会发出一个完整的回复。
+     * @return 包含所有配置组件的 LlmRequestComponents 数据类。
      */
-    suspend fun chatResponse(history: List<ChatContent>, isStreaming: Boolean = false): Flow<String> = flow {
+    private suspend fun buildLlmRequestComponents(): LlmRequestComponents {
         val currentSettings = settingsRepository.settingsFlow.first()
 
         val effectiveResponseSchema: JsonElement? = if (currentSettings.isGraphicalSchemaMode) {
             // 使用宽松的 jsonEncoder 来处理 JSON 元素
             convertGraphicalSchemaToJson(currentSettings.graphicalResponseSchema)
         } else {
-            currentSettings.responseSchema.takeIf { it.isNotBlank() }?.let { jsonEncoder.parseToJsonElement(it) } // 使用宽松的 jsonEncoder
+            currentSettings.responseSchema.takeIf { it.isNotBlank() }?.let { jsonEncoder.parseToJsonElement(it) }
         }
 
         val responseMimeType = if (effectiveResponseSchema != null && effectiveResponseSchema != JsonNull) "application/json" else "text/plain"
+
+        // 构建完整的 GenerationConfig
         val generationConfig = GenerationConfig(
             temperature = currentSettings.temperature,
             topP = currentSettings.topP,
-            topK = currentSettings.topK,
+            topK = currentSettings.topK?.takeIf { it > 0 },
+            maxOutputTokens = currentSettings.maxOutputTokens?.takeIf { it > 0 },
+            stopSequences = currentSettings.stopSequences.takeIf { it.isNotBlank() }
+                ?.split(',')
+                ?.map { it.trim() }
+                ?.filter { it.isNotEmpty() },
+            frequencyPenalty = currentSettings.frequencyPenalty.takeIf { it != 0.0f },
+            presencePenalty = currentSettings.presencePenalty.takeIf { it != 0.0f },
+            candidateCount = currentSettings.candidateCount.takeIf { it > 1 },
+            seed = currentSettings.seed,
             responseMimeType = responseMimeType,
             responseSchema = effectiveResponseSchema.takeIf { it != JsonNull }
         )
 
+        // 构建 SafetySettings
         val safetySettings = listOf(
             SafetySetting(HARM_CATEGORY_HARASSMENT, getThresholdStringFromFloat(currentSettings.harassment)),
             SafetySetting(HARM_CATEGORY_HATE_SPEECH, getThresholdStringFromFloat(currentSettings.hateSpeech)),
             SafetySetting(HARM_CATEGORY_SEXUALLY_EXPLICIT, getThresholdStringFromFloat(currentSettings.sexuallyExplicit)),
             SafetySetting(HARM_CATEGORY_DANGEROUS_CONTENT, getThresholdStringFromFloat(currentSettings.dangerousContent))
         )
+
+        return LlmRequestComponents(responseMimeType, generationConfig, safetySettings)
+    }
+
+    /**
+     * 调用 LLM API 以获取对话回复，支持流式和非流式输出。
+     *
+     * @param history 一个包含完整对话历史的 `ChatContent` 列表。
+     * @param isStreaming 是否开启流式输出。默认为 `false` (非流式)。
+     * @return 一个 `Flow<String>`，用于接收来自 LLM 的文本回复片段。
+     * 如果 `isStreaming` 为 `false`，则 `Flow` 只会发出一个完整的回复。
+     */
+    fun chatResponse(history: List<ChatContent>, isStreaming: Boolean = false): Flow<String> = flow {
+        // 使用重构后的函数获取组件
+        val components = buildLlmRequestComponents()
+        val generationConfig = components.generationConfig
+        val safetySettings = components.safetySettings
 
         val request = LlmRequest(
             contents = history,
@@ -236,7 +274,6 @@ class LlmRepository @Inject constructor(
                                     }
 
                                     try {
-                                        // 关键修改点 3: 使用宽松的 jsonEncoder 进行解码
                                         val llmResponse = jsonEncoder.decodeFromString<LlmResponse>(jsonString)
                                         val text = llmResponse.candidates
                                             ?.firstOrNull()
@@ -253,7 +290,6 @@ class LlmRepository @Inject constructor(
                                             Log.d("LlmRepository", "流式响应文本为空")
                                         }
                                     } catch (e: Exception) {
-                                        // 这里的 E 级日志会捕获到 'usageMetadata' 的报错，但现在应该能解决
                                         Log.e("LlmRepository", "解析流式响应 JSON 片段失败: $jsonString", e)
                                     }
                                 }
@@ -305,29 +341,10 @@ class LlmRepository @Inject constructor(
      * @return 从 LLM 返回的摘要文本。如果请求失败或响应格式不正确，则返回一个默认的错误消息。
      */
     suspend fun getSummary(text: String): String {
-        val currentSettings = settingsRepository.settingsFlow.first()
-
-        val effectiveResponseSchema: JsonElement? = if (currentSettings.isGraphicalSchemaMode) {
-            convertGraphicalSchemaToJson(currentSettings.graphicalResponseSchema)
-        } else {
-            currentSettings.responseSchema.takeIf { it.isNotBlank() }?.let { Json.parseToJsonElement(it) }
-        }
-
-        val responseMimeType = if (effectiveResponseSchema != null && effectiveResponseSchema != JsonNull) "application/json" else "text/plain"
-        val generationConfig = GenerationConfig(
-            temperature = currentSettings.temperature,
-            topP = currentSettings.topP,
-            topK = currentSettings.topK,
-            responseMimeType = responseMimeType,
-            responseSchema = effectiveResponseSchema.takeIf { it != JsonNull }
-        )
-
-        val safetySettings = listOf(
-            SafetySetting(HARM_CATEGORY_HARASSMENT, getThresholdStringFromFloat(currentSettings.harassment)),
-            SafetySetting(HARM_CATEGORY_HATE_SPEECH, getThresholdStringFromFloat(currentSettings.hateSpeech)),
-            SafetySetting(HARM_CATEGORY_SEXUALLY_EXPLICIT, getThresholdStringFromFloat(currentSettings.sexuallyExplicit)),
-            SafetySetting(HARM_CATEGORY_DANGEROUS_CONTENT, getThresholdStringFromFloat(currentSettings.dangerousContent))
-        )
+        // 使用重构后的函数获取组件
+        val components = buildLlmRequestComponents()
+        val generationConfig = components.generationConfig
+        val safetySettings = components.safetySettings
 
         val request = LlmRequest(
             contents = listOf(
@@ -343,15 +360,19 @@ class LlmRepository @Inject constructor(
         val apiKey = getApiKey()
 
         Log.d("LlmRepository", "LLM 摘要请求 contents: ${jsonEncoder.encodeToString(request.contents)}")
-        // 重新添加打印完整请求体的日志
         Log.d("LlmRepository", "LLM 摘要请求体: ${jsonEncoder.encodeToString(request)}")
 
         val requestUrl = "${baseLlmApiUrl}v1beta/models/$modelId:generateContent?key=$apiKey"
         Log.d("LlmRepository", "LLM 摘要请求 URL: $requestUrl")
 
-        val response = llmApiService.getSummary(modelId, apiKey, request)
-        Log.d("LlmRepository", "LLM 摘要响应: $response")
-        return response.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text ?: "无法生成摘要。"
+        return try {
+            val response = llmApiService.getSummary(modelId, apiKey, request)
+            Log.d("LlmRepository", "LLM 摘要响应: $response")
+            response.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text ?: "无法生成摘要。"
+        } catch (e: Exception) {
+            Log.e("LlmRepository", "获取 LLM 摘要失败", e)
+            "抱歉，无法生成摘要。错误：${e.localizedMessage}"
+        }
     }
 
     /**
