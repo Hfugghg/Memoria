@@ -182,6 +182,76 @@ class SettingsViewModel @Inject constructor(
     }
 
     /**
+     * 当停止序列输入框内容改变时调用。
+     * @param stopSequences 新的停止序列字符串。
+     */
+    fun onStopSequencesChange(stopSequences: String) {
+        viewModelScope.launch {
+            settingsRepository.updateStopSequences(stopSequences)
+        }
+    }
+
+    /**
+     * 当 Response MIME Type 输入框内容改变时调用。
+     * @param responseMimeType 新的 Response MIME Type。
+     */
+    fun onResponseMimeTypeChange(responseMimeType: String) {
+        viewModelScope.launch {
+            settingsRepository.updateResponseMimeType(responseMimeType)
+        }
+    }
+
+    /**
+     * 当 Response Logprobs 开关状态改变时调用。
+     * @param responseLogprobs 新的布尔值。
+     */
+    fun onResponseLogprobsChange(responseLogprobs: Boolean) {
+        viewModelScope.launch {
+            settingsRepository.updateResponseLogprobs(responseLogprobs)
+        }
+    }
+
+    /**
+     * 当频率惩罚值改变时调用。
+     * @param frequencyPenalty 新的频率惩罚值。
+     */
+    fun onFrequencyPenaltyChange(frequencyPenalty: Float) {
+        viewModelScope.launch {
+            settingsRepository.updateFrequencyPenalty(frequencyPenalty)
+        }
+    }
+
+    /**
+     * 当存在惩罚值改变时调用。
+     * @param presencePenalty 新的存在惩罚值。
+     */
+    fun onPresencePenaltyChange(presencePenalty: Float) {
+        viewModelScope.launch {
+            settingsRepository.updatePresencePenalty(presencePenalty)
+        }
+    }
+
+    /**
+     * 当候选数量值改变时调用。
+     * @param candidateCount 新的候选数量值。
+     */
+    fun onCandidateCountChange(candidateCount: Int) {
+        viewModelScope.launch {
+            settingsRepository.updateCandidateCount(candidateCount)
+        }
+    }
+
+    /**
+     * 当随机种子值改变时调用。
+     * @param seed 新的随机种子值。
+     */
+    fun onSeedChange(seed: Int?) {
+        viewModelScope.launch {
+            settingsRepository.updateSeed(seed)
+        }
+    }
+
+    /**
      * 当“使用本地存储”开关状态改变时调用。
      * @param useLocalStorage 新的布尔值。
      */

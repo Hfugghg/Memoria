@@ -15,6 +15,8 @@ import com.exp.memoria.ui.settings.JsonSchemaProperty // 导入 JsonSchemaProper
  * @property topK 一种替代温度采样的方法，模型会考虑概率最高的 topK 个令牌。0表示不设置。
  * @property maxOutputTokens 设置模型响应中允许的最大令牌数。
  * @property stopSequences 一个字符串列表，当模型在响应中遇到其中任何一个字符串时，将立即停止生成内容。
+ * @property responseMimeType 指定响应的MIME类型。
+ * @property responseLogprobs 是否返回响应的对数概率。
  * @property frequencyPenalty 频率惩罚。正值会根据一个 token 在当前生成内容中出现的“次数”来惩罚它，从而减少重复。
  * @property presencePenalty 存在惩罚。正值会根据一个 token 是否在当前生成内容中“存在”来惩罚它，有助于模型探讨更广泛的话题。
  * @property candidateCount 指定要返回的响应变体（候选答案）数量。
@@ -37,6 +39,8 @@ data class Settings(
     val topK: Int? = null,
     val maxOutputTokens: Int? = null,
     val stopSequences: String = "",
+    val responseMimeType: String = "",
+    val responseLogprobs: Boolean = false,
     val frequencyPenalty: Float = 0.0f,
     val presencePenalty: Float = 0.0f,
     val candidateCount: Int = 1,

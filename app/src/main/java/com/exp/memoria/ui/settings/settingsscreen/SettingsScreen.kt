@@ -40,6 +40,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.exp.memoria.ui.settings.Settings
 import com.exp.memoria.ui.settings.SettingsViewModel
 
 /**
@@ -116,78 +117,6 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
                 modifier = Modifier.fillMaxWidth()
             )
 
-            // Temperature 输入框
-            OutlinedTextField(
-                value = settings.temperature.toString(),
-                onValueChange = { newValue ->
-                    val floatValue = newValue.toFloatOrNull()
-                    if (floatValue != null) {
-                        // 限制输入值在 0.0 到 1.0 之间
-                        viewModel.onTemperatureChange(floatValue.coerceIn(0f, 1f))
-                    } else if (newValue.isBlank()) {
-                        // 如果清空输入，则设置为默认值 0.0f
-                        viewModel.onTemperatureChange(0.0f)
-                    }
-                },
-                label = { Text("Temperature (0.0 - 1.0)") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                modifier = Modifier.fillMaxWidth()
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Top P 输入框
-            OutlinedTextField(
-                value = settings.topP.toString(),
-                onValueChange = { newValue ->
-                    val floatValue = newValue.toFloatOrNull()
-                    if (floatValue != null) {
-                        viewModel.onTopPChange(floatValue.coerceIn(0f, 1f))
-                    } else if (newValue.isBlank()) {
-                        viewModel.onTopPChange(0.0f)
-                    }
-                },
-                label = { Text("Top P (0.0 - 1.0)") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                modifier = Modifier.fillMaxWidth()
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Top K 输入框
-            OutlinedTextField(
-                value = settings.topK?.toString() ?: "",
-                onValueChange = { newValue ->
-                    if (newValue.isNotBlank()) {
-                        val intValue = newValue.toIntOrNull()
-                        if (intValue != null) {
-                            viewModel.onTopKChange(intValue.coerceAtLeast(1))
-                        }
-                    } else {
-                        viewModel.onTopKChange(null) // 允许清空
-                    }
-                },
-                label = { Text("Top K (空或 >= 1)") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                modifier = Modifier.fillMaxWidth()
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // 最大输出 Token 输入框
-            OutlinedTextField(
-                value = settings.maxOutputTokens?.toString() ?: "",
-                onValueChange = { newValue ->
-                    if (newValue.isNotBlank()) {
-                        val intValue = newValue.toIntOrNull()
-                        if (intValue != null) {
-                            viewModel.onMaxOutputTokensChange(intValue.coerceAtLeast(1))
-                        }
-                    } else {
-                        viewModel.onMaxOutputTokensChange(null) // 允许清空
-                    }
-                },
-                label = { Text("最大输出 Token (空或 >= 1)") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                modifier = Modifier.fillMaxWidth()
-            )
             Spacer(modifier = Modifier.height(16.dp))
 
             // Response Schema 设置区域
@@ -301,13 +230,21 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
                 onDangerousContentChange = viewModel::onDangerousContentChange
             )
 
-            // 生成配置占位符
-            Card(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text("生成配置", style = MaterialTheme.typography.titleMedium)
-                    Text("// 尚未实现", style = MaterialTheme.typography.bodySmall)
-                }
-            }
+            // 生成配置
+            GenerationConfigSection(
+                settings = settings,
+                onTemperatureChange = viewModel::onTemperatureChange,
+                onTopPChange = viewModel::onTopPChange,
+                onTopKChange = viewModel::onTopKChange,
+                onMaxOutputTokensChange = viewModel::onMaxOutputTokensChange,
+                onStopSequencesChange = viewModel::onStopSequencesChange,
+                onFrequencyPenaltyChange = viewModel::onFrequencyPenaltyChange,
+                onPresencePenaltyChange = viewModel::onPresencePenaltyChange,
+                onCandidateCountChange = viewModel::onCandidateCountChange,
+                onSeedChange = viewModel::onSeedChange,
+                onResponseMimeTypeChange = viewModel::onResponseMimeTypeChange,
+                onResponseLogprobsChange = viewModel::onResponseLogprobsChange
+            )
         }
     }
 
@@ -392,5 +329,205 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
                 }
             }
         )
+    }
+}
+
+@Composable
+fun GenerationConfigSection(
+    settings: Settings,
+    onTemperatureChange: (Float) -> Unit,
+    onTopPChange: (Float) -> Unit,
+    onTopKChange: (Int?) -> Unit,
+    onMaxOutputTokensChange: (Int?) -> Unit,
+    onStopSequencesChange: (String) -> Unit,
+    onFrequencyPenaltyChange: (Float) -> Unit,
+    onPresencePenaltyChange: (Float) -> Unit,
+    onCandidateCountChange: (Int) -> Unit,
+    onSeedChange: (Int?) -> Unit,
+    onResponseMimeTypeChange: (String) -> Unit,
+    onResponseLogprobsChange: (Boolean) -> Unit
+) {
+    Card(modifier = Modifier
+        .fillMaxWidth()
+        .padding(vertical = 4.dp)) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text("生成配置", style = MaterialTheme.typography.titleMedium)
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Temperature 输入框
+            OutlinedTextField(
+                value = settings.temperature.toString(),
+                onValueChange = { newValue ->
+                    val floatValue = newValue.toFloatOrNull()
+                    if (floatValue != null) {
+                        onTemperatureChange(floatValue.coerceIn(0f, 2f))
+                    } else if (newValue.isBlank()) {
+                        onTemperatureChange(0.0f)
+                    }
+                },
+                label = { Text("Temperature (0.0 - 2.0)") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Top P 输入框
+            OutlinedTextField(
+                value = settings.topP.toString(),
+                onValueChange = { newValue ->
+                    val floatValue = newValue.toFloatOrNull()
+                    if (floatValue != null) {
+                        onTopPChange(floatValue.coerceIn(0f, 1f))
+                    } else if (newValue.isBlank()) {
+                        onTopPChange(0.0f)
+                    }
+                },
+                label = { Text("Top P (0.0 - 1.0)") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Top K 输入框
+            OutlinedTextField(
+                value = settings.topK?.toString() ?: "",
+                onValueChange = { newValue ->
+                    if (newValue.isNotBlank()) {
+                        val intValue = newValue.toIntOrNull()
+                        if (intValue != null) {
+                            onTopKChange(intValue.coerceAtLeast(1))
+                        }
+                    } else {
+                        onTopKChange(null) // 允许清空
+                    }
+                },
+                label = { Text("Top K (>= 1)") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // 最大输出 Token 输入框
+            OutlinedTextField(
+                value = settings.maxOutputTokens?.toString() ?: "",
+                onValueChange = { newValue ->
+                    if (newValue.isNotBlank()) {
+                        val intValue = newValue.toIntOrNull()
+                        if (intValue != null) {
+                            onMaxOutputTokensChange(intValue.coerceAtLeast(1))
+                        }
+                    } else {
+                        onMaxOutputTokensChange(null) // 允许清空
+                    }
+                },
+                label = { Text("最大输出 Token (>= 1)") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Stop Sequences 输入框
+            OutlinedTextField(
+                value = settings.stopSequences,
+                onValueChange = onStopSequencesChange,
+                label = { Text("停止序列") },
+                placeholder = { Text("例如 stop,end，用逗号分隔") },
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Response Mime Type 输入框
+            OutlinedTextField(
+                value = settings.responseMimeType,
+                onValueChange = onResponseMimeTypeChange,
+                label = { Text("Response MIME Type") },
+                placeholder = { Text("例如 application/json") },
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Frequency Penalty 输入框
+            OutlinedTextField(
+                value = settings.frequencyPenalty.toString(),
+                onValueChange = { newValue ->
+                    val floatValue = newValue.toFloatOrNull()
+                    if (floatValue != null) {
+                        onFrequencyPenaltyChange(floatValue.coerceIn(-2f, Math.nextDown(2.0f)))
+                    } else if (newValue.isBlank()) {
+                        onFrequencyPenaltyChange(0.0f)
+                    }
+                },
+                label = { Text("频率惩罚 [-2.0, 2.0)") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Presence Penalty 输入框
+            OutlinedTextField(
+                value = settings.presencePenalty.toString(),
+                onValueChange = { newValue ->
+                    val floatValue = newValue.toFloatOrNull()
+                    if (floatValue != null) {
+                        onPresencePenaltyChange(floatValue.coerceIn(-2f, Math.nextDown(2.0f)))
+                    } else if (newValue.isBlank()) {
+                        onPresencePenaltyChange(0.0f)
+                    }
+                },
+                label = { Text("存在惩罚 [-2.0, 2.0)") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Candidate Count 输入框
+            OutlinedTextField(
+                value = settings.candidateCount.toString(),
+                onValueChange = { newValue ->
+                    val intValue = newValue.toIntOrNull()
+                    if (intValue != null) {
+                        onCandidateCountChange(intValue.coerceIn(1, 8))
+                    }
+                },
+                label = { Text("候选数量 (1 - 8)") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Seed 输入框
+            OutlinedTextField(
+                value = settings.seed?.toString() ?: "",
+                onValueChange = { newValue ->
+                    if (newValue.isNotBlank()) {
+                        val intValue = newValue.toIntOrNull()
+                        if (intValue != null) {
+                            onSeedChange(intValue)
+                        }
+                    } else {
+                        onSeedChange(null) // 允许清空
+                    }
+                },
+                label = { Text("随机种子 (整数)") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Response Logprobs 开关
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text("返回对数概率 (Logprobs)")
+                Switch(
+                    checked = settings.responseLogprobs,
+                    onCheckedChange = onResponseLogprobsChange
+                )
+            }
+        }
     }
 }
