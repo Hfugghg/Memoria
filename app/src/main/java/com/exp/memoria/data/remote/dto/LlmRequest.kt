@@ -35,11 +35,11 @@ data class LlmRequest(
  * [系统指令]
  *
  * 用于向模型提供高级别的、持久性的指令，以指导其在整个对话过程中的行为、风格和角色。
- * 目前是一个占位符，为将来的功能扩展做准备。
+ * 它的结构与 `Content` 类似，包含一个 `Part` 列表。
  */
 @Serializable
 data class SystemInstruction(
-    val placeholder: String? = null // 尚未实现
+    val parts: List<Part>
 )
 
 /**

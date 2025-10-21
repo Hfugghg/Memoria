@@ -1,28 +1,18 @@
 package com.exp.memoria.ui.settings
 
-import android.util.Log // 导入 Log
+import android.util.Log
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.exp.memoria.data.remote.api.ModelDetail // 导入 ModelDetail
-import com.exp.memoria.data.repository.LlmRepository // 导入 LlmRepository
+import com.exp.memoria.data.remote.api.ModelDetail
+import com.exp.memoria.data.repository.LlmRepository
 import com.exp.memoria.data.repository.MemoryRepository
 import com.exp.memoria.data.repository.SettingsRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.doubleOrNull
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
-import kotlinx.serialization.json.put
+import kotlinx.serialization.json.*
 import javax.inject.Inject
 
 /**
@@ -56,7 +46,7 @@ class SettingsViewModel @Inject constructor(
     private val _conversationId = MutableStateFlow<String?>(null)
 
     // 特定于对话的状态
-    private val _systemInstruction = MutableStateFlow("")
+    private val _systemInstruction = MutableStateFlow(SystemInstruction(parts = emptyList())) // Change type
     val systemInstruction = _systemInstruction.asStateFlow()
 
     private val _responseSchema = MutableStateFlow("")
@@ -119,10 +109,26 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             val header = memoryRepository.getConversationHeaderById(conversationId)
             if (header != null) {
-                _systemInstruction.value = header.systemInstruction ?: ""
+                // Parse systemInstruction string to SystemInstruction object
+                _systemInstruction.value = parseSystemInstructionJson(header.systemInstruction)
                 _responseSchema.value = header.responseSchema ?: ""
                 _graphicalSchemaProperties.value = parseJsonToGraphicalSchema(header.responseSchema)
             }
+        }
+    }
+
+    /**
+     * 辅助函数：将 JSON 字符串解析为 SystemInstruction 对象。
+     * @param jsonString 待解析的 JSON 字符串。
+     * @return 解析后的 SystemInstruction 对象，如果解析失败则返回包含空列表的 SystemInstruction。
+     */
+    private fun parseSystemInstructionJson(jsonString: String?): SystemInstruction {
+        if (jsonString.isNullOrBlank()) return SystemInstruction(parts = emptyList())
+        return try {
+            Json.decodeFromString<SystemInstruction>(jsonString)
+        } catch (e: Exception) {
+            Log.e("SettingsViewModel", "解析 System Instruction JSON 失败: ${e.message}")
+            SystemInstruction(parts = emptyList())
         }
     }
 
@@ -137,14 +143,53 @@ class SettingsViewModel @Inject constructor(
     }
 
     /**
-     * 当 System Instruction 输入框内容改变时调用。
-     * @param instruction 新的 System Instruction 字符串。
+     * 添加一个新的系统指令部分。
+     * @param text 新指令部分的文本内容。
      */
-    fun onSystemInstructionChange(instruction: String) {
-        _systemInstruction.value = instruction
+    fun addSystemInstructionPart(text: String) {
+        if (text.isBlank()) return
+        val newPart = Part(text = text)
+        val updatedParts = _systemInstruction.value.parts + newPart
+        _systemInstruction.value = SystemInstruction(parts = updatedParts)
+        updateSystemInstructionInRepository()
+    }
+
+    /**
+     * 更新一个现有的系统指令部分。
+     * @param index 要更新的指令部分的索引。
+     * @param newText 新的文本内容。
+     */
+    fun updateSystemInstructionPart(index: Int, newText: String) {
+        if (index < 0 || index >= _systemInstruction.value.parts.size) return
+        if (newText.isBlank()) return // 不允许更新为空白
+        val updatedParts = _systemInstruction.value.parts.toMutableList().apply {
+            this[index] = this[index].copy(text = newText)
+        }
+        _systemInstruction.value = SystemInstruction(parts = updatedParts)
+        updateSystemInstructionInRepository()
+    }
+
+    /**
+     * 删除一个系统指令部分。
+     * @param index 要删除的指令部分的索引。
+     */
+    fun removeSystemInstructionPart(index: Int) {
+        if (index < 0 || index >= _systemInstruction.value.parts.size) return
+        val updatedParts = _systemInstruction.value.parts.toMutableList().apply {
+            removeAt(index)
+        }
+        _systemInstruction.value = SystemInstruction(parts = updatedParts)
+        updateSystemInstructionInRepository()
+    }
+
+    /**
+     * 辅助函数：将当前的系统指令保存到仓库。
+     */
+    private fun updateSystemInstructionInRepository() {
         viewModelScope.launch {
             savedStateHandle.get<String>("conversationId")?.let { conversationId ->
-                memoryRepository.updateSystemInstruction(conversationId, instruction)
+                val jsonString = Json.encodeToString(_systemInstruction.value)
+                memoryRepository.updateSystemInstruction(conversationId, jsonString)
             }
         }
     }

@@ -226,13 +226,20 @@ class LlmRepository @Inject constructor(
         val generationConfig = components.generationConfig
         val safetySettings = components.safetySettings
 
-        // TODO: 将 systemInstruction 添加到请求中。
-        // 这需要修改 LlmRequest DTO 以包含一个可空的 'systemInstruction' 字段。
-        // 例如: `val systemInstruction: SystemInstruction? = null`
-        // 并在这里进行构造。
+        // 如果 systemInstruction 不为空，则将其从 JSON 字符串解析为 SystemInstruction 对象
+        val systemInstructionObject = try {
+            systemInstruction?.takeIf { it.isNotBlank() }?.let {
+                jsonEncoder.decodeFromString<SystemInstruction>(it)
+            }
+        } catch (e: Exception) {
+            Log.e("LlmRepository", "解析 systemInstruction JSON 失败: $systemInstruction", e)
+            // 根据业务需求决定如何处理错误，这里选择忽略无效的指令
+            null
+        }
 
         val request = LlmRequest(
             contents = history,
+            systemInstruction = systemInstructionObject,
             generationConfig = generationConfig,
             safetySettings = safetySettings
         )
@@ -348,7 +355,7 @@ class LlmRepository @Inject constructor(
                     Log.w("LlmRepository", "非流式响应文本为空: $errorMsg")
                     emit(ChatChunkResult.Error(errorMsg))
                 }
-            } catch (e: CancellationException) {
+            } catch (_: CancellationException) {
                 Log.d("LlmRepository", "Flow was cancelled by the collector, which is expected for non-streaming calls.")
             } catch (e: Exception) {
                 Log.e("LlmRepository", "获取 LLM 聊天响应失败", e)
