@@ -1,25 +1,19 @@
 package com.exp.memoria.ui.settings
 
-import android.util.Log // 导入 Log
+import android.util.Log
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.exp.memoria.data.remote.api.ModelDetail // 导入 ModelDetail
-import com.exp.memoria.data.repository.LlmRepository // 导入 LlmRepository
+import com.exp.memoria.data.remote.api.ModelDetail
+import com.exp.memoria.data.repository.LlmRepository
+import com.exp.memoria.data.repository.MemoryRepository
 import com.exp.memoria.data.repository.SettingsRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.*
 import javax.inject.Inject
-import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.put
 
 /**
  * [设置页面的 ViewModel]
@@ -37,7 +31,9 @@ import kotlinx.serialization.json.put
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val settingsRepository: SettingsRepository,
-    private val llmRepository: LlmRepository // 注入 LlmRepository
+    private val llmRepository: LlmRepository, // 注入 LlmRepository
+    private val memoryRepository: MemoryRepository, // 注入 MemoryRepository
+    private val savedStateHandle: SavedStateHandle // 注入 SavedStateHandle
 ) : ViewModel() {
 
     val settingsState = settingsRepository.settingsFlow.stateIn(
@@ -45,6 +41,16 @@ class SettingsViewModel @Inject constructor(
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = Settings()
     )
+
+    // 从 SavedStateHandle 获取 conversationId
+    private val _conversationId = MutableStateFlow<String?>(null)
+
+    // 特定于对话的状态
+    private val _systemInstruction = MutableStateFlow(SystemInstruction(parts = emptyList())) // Change type
+    val systemInstruction = _systemInstruction.asStateFlow()
+
+    private val _responseSchema = MutableStateFlow("")
+    val responseSchema = _responseSchema.asStateFlow()
 
     // 控制 API Key 缺失错误弹窗的显示状态
     private val _showApiKeyError = MutableStateFlow(false)
@@ -78,40 +84,14 @@ class SettingsViewModel @Inject constructor(
     private val _draftProperty = MutableStateFlow(JsonSchemaProperty(id = System.currentTimeMillis()))
     val draftProperty = _draftProperty.asStateFlow()
 
-    // 用于存储当前生效的 responseSchema JSON 字符串，无论是来自直接输入还是图形化生成
-    private val _currentResponseSchemaString = MutableStateFlow("")
-    val currentResponseSchemaString = _currentResponseSchemaString.asStateFlow()
-
     init {
-        // 当 settingsState 或 graphicalSchemaProperties 变化时，更新 _currentResponseSchemaString
+        // 从 savedStateHandle 获取 conversationId 并加载相关设置
         viewModelScope.launch {
-            combine(settingsState, graphicalSchemaProperties, _isGraphicalSchemaMode, _draftProperty) { settings, graphicalProperties, isGraphicalMode, draftProp ->
-                if (isGraphicalMode) {
-                    val combinedProperties = if (draftProp.name.isNotBlank()) {
-                        // If draft property has a valid name, include it in the conversion
-                        // 确保不重复添加已存在于列表中的属性 (虽然可能性小，但保险起见)
-                        val exists = graphicalProperties.any { it.id == draftProp.id }
-                        if (exists) graphicalProperties else graphicalProperties + draftProp
-                    } else {
-                        graphicalProperties
-                    }
-                    convertGraphicalSchemaToJson(combinedProperties)
-                } else {
-                    settings.responseSchema
-                }
-            }.collect {
-                _currentResponseSchemaString.value = it
-            }
+            _conversationId.value = savedStateHandle.get<String>("conversationId")
+            _conversationId.value?.let { loadConversationSettings(it) }
         }
 
-        // 初始化 graphicalSchemaProperties
-        viewModelScope.launch {
-            settingsState.map { it.graphicalResponseSchema }.collect {
-                _graphicalSchemaProperties.value = it
-            }
-        }
-
-        // 监听 _isGraphicalSchemaMode 变化，如果切换模式，则重置 _draftProperty
+        // 监听 _isGraphicalSchemaMode 变化，如果切换到图形模式，则重置 _draftProperty
         viewModelScope.launch {
             _isGraphicalSchemaMode.collect { isGraphicalMode ->
                 if (isGraphicalMode) {
@@ -122,12 +102,95 @@ class SettingsViewModel @Inject constructor(
     }
 
     /**
+     * 根据 conversationId 加载特定于对话的设置。
+     * @param conversationId 对话的唯一ID。
+     */
+    private fun loadConversationSettings(conversationId: String) {
+        viewModelScope.launch {
+            val header = memoryRepository.getConversationHeaderById(conversationId)
+            if (header != null) {
+                // Parse systemInstruction string to SystemInstruction object
+                _systemInstruction.value = parseSystemInstructionJson(header.systemInstruction)
+                _responseSchema.value = header.responseSchema ?: ""
+                _graphicalSchemaProperties.value = parseJsonToGraphicalSchema(header.responseSchema)
+            }
+        }
+    }
+
+    /**
+     * 辅助函数：将 JSON 字符串解析为 SystemInstruction 对象。
+     * @param jsonString 待解析的 JSON 字符串。
+     * @return 解析后的 SystemInstruction 对象，如果解析失败则返回包含空列表的 SystemInstruction。
+     */
+    private fun parseSystemInstructionJson(jsonString: String?): SystemInstruction {
+        if (jsonString.isNullOrBlank()) return SystemInstruction(parts = emptyList())
+        return try {
+            Json.decodeFromString<SystemInstruction>(jsonString)
+        } catch (e: Exception) {
+            Log.e("SettingsViewModel", "解析 System Instruction JSON 失败: ${e.message}")
+            SystemInstruction(parts = emptyList())
+        }
+    }
+
+    /**
      * 当 API 密钥输入框内容改变时调用。
      * @param apiKey 新的 API 密钥。
      */
     fun onApiKeyChange(apiKey: String) {
         viewModelScope.launch {
             settingsRepository.updateApiKey(apiKey)
+        }
+    }
+
+    /**
+     * 添加一个新的系统指令部分。
+     * @param text 新指令部分的文本内容。
+     */
+    fun addSystemInstructionPart(text: String) {
+        if (text.isBlank()) return
+        val newPart = Part(text = text)
+        val updatedParts = _systemInstruction.value.parts + newPart
+        _systemInstruction.value = SystemInstruction(parts = updatedParts)
+        updateSystemInstructionInRepository()
+    }
+
+    /**
+     * 更新一个现有的系统指令部分。
+     * @param index 要更新的指令部分的索引。
+     * @param newText 新的文本内容。
+     */
+    fun updateSystemInstructionPart(index: Int, newText: String) {
+        if (index < 0 || index >= _systemInstruction.value.parts.size) return
+        if (newText.isBlank()) return // 不允许更新为空白
+        val updatedParts = _systemInstruction.value.parts.toMutableList().apply {
+            this[index] = this[index].copy(text = newText)
+        }
+        _systemInstruction.value = SystemInstruction(parts = updatedParts)
+        updateSystemInstructionInRepository()
+    }
+
+    /**
+     * 删除一个系统指令部分。
+     * @param index 要删除的指令部分的索引。
+     */
+    fun removeSystemInstructionPart(index: Int) {
+        if (index < 0 || index >= _systemInstruction.value.parts.size) return
+        val updatedParts = _systemInstruction.value.parts.toMutableList().apply {
+            removeAt(index)
+        }
+        _systemInstruction.value = SystemInstruction(parts = updatedParts)
+        updateSystemInstructionInRepository()
+    }
+
+    /**
+     * 辅助函数：将当前的系统指令保存到仓库。
+     */
+    private fun updateSystemInstructionInRepository() {
+        viewModelScope.launch {
+            savedStateHandle.get<String>("conversationId")?.let { conversationId ->
+                val jsonString = Json.encodeToString(_systemInstruction.value)
+                memoryRepository.updateSystemInstruction(conversationId, jsonString)
+            }
         }
     }
 
@@ -316,8 +379,14 @@ class SettingsViewModel @Inject constructor(
      * @param responseSchema 新的 responseSchema 字符串。
      */
     fun onResponseSchemaChange(responseSchema: String) {
+        // 当用户在文本框中直接编辑时调用
+        _responseSchema.value = responseSchema
+        // 尝试将文本内容解析到图形化状态，以保持同步
+        _graphicalSchemaProperties.value = parseJsonToGraphicalSchema(responseSchema)
         viewModelScope.launch {
-            settingsRepository.updateResponseSchema(responseSchema)
+            savedStateHandle.get<String>("conversationId")?.let { conversationId ->
+                memoryRepository.updateResponseSchema(conversationId, responseSchema)
+            }
         }
     }
 
@@ -325,17 +394,7 @@ class SettingsViewModel @Inject constructor(
      * 切换图形化 Response Schema 编辑模式。
      */
     fun onToggleGraphicalSchemaMode() {
-        // 在更新状态之前，将当前模式的数据保存
-        viewModelScope.launch {
-            if (_isGraphicalSchemaMode.value) {
-                // 从图形化模式切换到 JSON 模式，将当前图形化数据生成的 JSON 存入 responseSchema
-                settingsRepository.updateResponseSchema(_currentResponseSchemaString.value)
-            } else {
-                // 从 JSON 模式切换到图形化模式，将当前 JSON 字符串存入 graphicalResponseSchema (假设 SettingsRepository 有解析逻辑)
-                // 注意: 这里应该实现 JSON 字符串到 JsonSchemaProperty 列表的解析逻辑，但为了简单，先保存当前图形化列表
-                settingsRepository.updateGraphicalResponseSchema(_graphicalSchemaProperties.value)
-            }
-        }
+        // 仅切换UI状态，数据的转换和保存在各自的编辑操作中完成
         _isGraphicalSchemaMode.update { !it }
         // 模式切换后，重置草稿属性
         _draftProperty.value = JsonSchemaProperty(id = System.currentTimeMillis())
@@ -350,18 +409,10 @@ class SettingsViewModel @Inject constructor(
         val propertyToAdd = _draftProperty.value
         // 确保属性名不为空且不在现有列表中（基于名称或 ID 检查）
         if (propertyToAdd.name.isNotBlank() && !_graphicalSchemaProperties.value.any { it.name == propertyToAdd.name }) {
-            _graphicalSchemaProperties.update { currentList ->
-                // 1. 计算新列表
-                val newList = currentList + propertyToAdd.copy(id = System.currentTimeMillis())
-
-                // 2. 在更新 StateFlow 之前，将新列表保存到仓库
-                viewModelScope.launch {
-                    settingsRepository.updateGraphicalResponseSchema(newList)
-                }
-
-                // 3. 返回新列表以更新 StateFlow 的值
-                newList // update 块的返回值用于更新 StateFlow
-            }
+            val newList = _graphicalSchemaProperties.value + propertyToAdd.copy(id = System.currentTimeMillis())
+            _graphicalSchemaProperties.value = newList
+            // 根据更新后的图形化列表，转换并保存 Schema
+            updateResponseSchemaFromGraphical()
             _draftProperty.value = JsonSchemaProperty(id = System.currentTimeMillis()) // 重置草稿
         } else if (propertyToAdd.name.isNotBlank()) {
             Log.w("SettingsViewModel", "试图添加一个属性名已存在的属性: ${propertyToAdd.name}")
@@ -375,15 +426,9 @@ class SettingsViewModel @Inject constructor(
      * @param updatedProperty 需要更新的属性对象。
      */
     fun updateGraphicalSchemaProperty(updatedProperty: JsonSchemaProperty) {
-        _graphicalSchemaProperties.update { currentProperties ->
-            currentProperties.map {
-                if (it.id == updatedProperty.id) updatedProperty else it
-            }.also {
-                viewModelScope.launch {
-                    settingsRepository.updateGraphicalResponseSchema(it)
-                }
-            }
-        }
+        val newList = _graphicalSchemaProperties.value.map { if (it.id == updatedProperty.id) updatedProperty else it }
+        _graphicalSchemaProperties.value = newList
+        updateResponseSchemaFromGraphical()
     }
 
     /**
@@ -399,11 +444,20 @@ class SettingsViewModel @Inject constructor(
      * @param propertyId 需要删除的属性的唯一ID。
      */
     fun removeGraphicalSchemaProperty(propertyId: Long) {
-        _graphicalSchemaProperties.update { currentProperties ->
-            currentProperties.filter { it.id != propertyId }.also {
-                viewModelScope.launch {
-                    settingsRepository.updateGraphicalResponseSchema(it)
-                }
+        val newList = _graphicalSchemaProperties.value.filter { it.id != propertyId }
+        _graphicalSchemaProperties.value = newList
+        updateResponseSchemaFromGraphical()
+    }
+
+    /**
+     * 辅助函数：从图形化属性列表生成JSON字符串并持久化。
+     */
+    private fun updateResponseSchemaFromGraphical() {
+        val newSchema = convertGraphicalSchemaToJson(_graphicalSchemaProperties.value)
+        _responseSchema.value = newSchema
+        viewModelScope.launch {
+            savedStateHandle.get<String>("conversationId")?.let { conversationId ->
+                memoryRepository.updateResponseSchema(conversationId, newSchema)
             }
         }
     }
@@ -423,7 +477,7 @@ class SettingsViewModel @Inject constructor(
         val propertiesMap = properties.associate { prop ->
             prop.name to buildJsonObject {
                 // 确保属性名不为空
-                if (prop.name.isBlank()) return@associate "" to buildJsonObject{} // 跳过空属性名
+                if (prop.name.isBlank()) return@associate "" to buildJsonObject {} // 跳过空属性名
 
                 put("type", prop.type.name.lowercase())
                 if (prop.description.isNotBlank()) {
@@ -460,7 +514,42 @@ class SettingsViewModel @Inject constructor(
         }
 
         // 步骤 4: 序列化为字符串
-        return Json.encodeToString(rootSchema)
+        return Json { prettyPrint = true }.encodeToString(rootSchema)
+    }
+
+    /**
+     * 辅助函数：将 JSON Schema 字符串解析为图形化编辑的属性列表。
+     * @param jsonString 待解析的 JSON 字符串。
+     * @return 解析后的属性列表，如果解析失败则返回空列表。
+     */
+    private fun parseJsonToGraphicalSchema(jsonString: String?): List<JsonSchemaProperty> {
+        if (jsonString.isNullOrBlank()) return emptyList()
+        return try {
+            val root = Json.decodeFromString<JsonObject>(jsonString)
+            // 确保根是 "object" 类型，并且有 "properties" 字段
+            if (root["type"]?.jsonPrimitive?.content != "object" || !root.contains("properties")) {
+                return emptyList()
+            }
+            val properties = root["properties"]?.jsonObject ?: return emptyList()
+
+            properties.map { (name, element) ->
+                val propObj = element.jsonObject
+                val typeStr = propObj["type"]?.jsonPrimitive?.content?.uppercase()
+                val type = JsonSchemaPropertyType.entries.find { it.name == typeStr } ?: JsonSchemaPropertyType.STRING
+                JsonSchemaProperty(
+                    id = System.currentTimeMillis() + name.hashCode(), // 生成一个临时的唯一ID
+                    name = name,
+                    type = type,
+                    description = propObj["description"]?.jsonPrimitive?.content ?: "",
+                    stringFormat = StringFormat.entries.find { it.name.equals(propObj["format"]?.jsonPrimitive?.content, ignoreCase = true) } ?: StringFormat.NONE,
+                    numberMinimum = propObj["minimum"]?.jsonPrimitive?.doubleOrNull,
+                    numberMaximum = propObj["maximum"]?.jsonPrimitive?.doubleOrNull
+                )
+            }
+        } catch (e: Exception) {
+            Log.e("SettingsViewModel", "解析 Response Schema JSON 失败: ${e.message}")
+            emptyList()
+        }
     }
 
     /**

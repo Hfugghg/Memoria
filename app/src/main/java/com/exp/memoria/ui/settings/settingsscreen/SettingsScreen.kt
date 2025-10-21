@@ -1,6 +1,8 @@
 package com.exp.memoria.ui.settings.settingsscreen
 
+import android.content.Context
 import android.util.Log
+import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -9,17 +11,25 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.exp.memoria.ui.settings.SettingsViewModel
+import com.exp.memoria.utils.DatabaseUtils
 
 /**
  * ## 设置界面的主 Composable UI
@@ -40,14 +50,22 @@ import com.exp.memoria.ui.settings.SettingsViewModel
 fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
     // 从 ViewModel 中收集状态
     val settings by viewModel.settingsState.collectAsState()
+    val systemInstruction by viewModel.systemInstruction.collectAsState() // Now it's SystemInstruction object
+    val responseSchema by viewModel.responseSchema.collectAsState()
     val showModelSelectionDialog by viewModel.showModelSelectionDialog.collectAsState()
     val availableModels by viewModel.availableModels.collectAsState()
     val isLoadingModels by viewModel.isLoadingModels.collectAsState()
     val showApiKeyError by viewModel.showApiKeyError.collectAsState()
     val isGraphicalSchemaMode by viewModel.isGraphicalSchemaMode.collectAsState()
     val graphicalSchemaProperties by viewModel.graphicalSchemaProperties.collectAsState()
-    val currentResponseSchemaString by viewModel.currentResponseSchemaString.collectAsState()
     val draftProperty by viewModel.draftProperty.collectAsState() // 获取草稿属性
+    val context = LocalContext.current
+
+    // State for managing system instruction dialogs
+    var showAddInstructionDialog by remember { mutableStateOf(false) }
+    var showEditInstructionDialog by remember { mutableStateOf(false) }
+    var editingInstructionIndex by remember { mutableStateOf<Int?>(null) }
+    var draftInstructionText by remember { mutableStateOf("") }
 
     // 页面整体脚手架
     Scaffold(
@@ -123,24 +141,15 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
                 )
             } else {
                 OutlinedTextField(
-                    value = settings.responseSchema,
+                    value = responseSchema, // 绑定到新的 ViewModel 状态
                     onValueChange = viewModel::onResponseSchemaChange,
                     label = { Text("Response Schema (JSON)") },
                     placeholder = { Text("例如: {\"type\": \"object\", \"properties\": {\"name\": {\"type\": \"string\"}} }") },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 5
                 )
             }
 
-            // 显示当前生效的 Response Schema JSON 字符串
-            Spacer(modifier = Modifier.height(8.dp))
-            OutlinedTextField(
-                value = currentResponseSchemaString,
-                onValueChange = { /* 只读 */ },
-                label = { Text("实际生效的 Response Schema JSON") },
-                readOnly = true,
-                modifier = Modifier.fillMaxWidth(),
-                minLines = 3
-            )
             Text(
                 text = "提示: 如果 Response Schema 为空，response_mime_type 将为 text/plain；否则为 application/json。",
                 style = MaterialTheme.typography.bodySmall,
@@ -155,6 +164,16 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
                     checked = settings.useLocalStorage,
                     onCheckedChange = viewModel::onUseLocalStorageChange
                 )
+            }
+
+            // 导出数据库按钮
+            Button(
+                onClick = {
+                    exportDatabase(context)
+                },
+                modifier = Modifier.padding(top = 8.dp)
+            ) {
+                Text("导出数据库")
             }
 
             // 流式输出开关
@@ -176,13 +195,146 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
             Text("LLM 高级设置", style = MaterialTheme.typography.titleLarge)
             Spacer(modifier = Modifier.height(8.dp))
 
-            // 其他高级设置的占位符
-            Card(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text("系统指令", style = MaterialTheme.typography.titleMedium)
-                    Text("// 尚未实现", style = MaterialTheme.typography.bodySmall)
+            // System Instruction Section
+            Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                Text("系统指令", style = MaterialTheme.typography.titleMedium)
+                Spacer(modifier = Modifier.height(8.dp))
+
+                if (systemInstruction.parts.isEmpty()) {
+                    Text("当前没有系统指令。点击下方按钮添加。", style = MaterialTheme.typography.bodyMedium)
+                } else {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 200.dp) // Limit height to avoid excessive scrolling
+                    ) {
+                        items(systemInstruction.parts.size) { index ->
+                            val part = systemInstruction.parts[index]
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(16.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text(
+                                        text = part.text,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    IconButton(onClick = {
+                                        editingInstructionIndex = index
+                                        draftInstructionText = part.text
+                                        showEditInstructionDialog = true
+                                    }) {
+                                        Icon(Icons.Default.Edit, contentDescription = "编辑指令")
+                                    }
+                                    IconButton(onClick = {
+                                        viewModel.removeSystemInstructionPart(index)
+                                    }) {
+                                        Icon(Icons.Default.Delete, contentDescription = "删除指令")
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+                Button(
+                    onClick = {
+                        draftInstructionText = "" // Clear draft for new instruction
+                        showAddInstructionDialog = true
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = "添加指令")
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("添加系统指令")
                 }
             }
+
+            // Add Instruction Dialog
+            if (showAddInstructionDialog) {
+                AlertDialog(
+                    onDismissRequest = { showAddInstructionDialog = false },
+                    title = { Text("添加系统指令") },
+                    text = {
+                        OutlinedTextField(
+                            value = draftInstructionText,
+                            onValueChange = { draftInstructionText = it },
+                            label = { Text("指令内容") },
+                            modifier = Modifier.fillMaxWidth(),
+                            minLines = 3
+                        )
+                    },
+                    confirmButton = {
+                        TextButton(
+                            onClick = {
+                                if (draftInstructionText.isNotBlank()) {
+                                    viewModel.addSystemInstructionPart(draftInstructionText)
+                                    showAddInstructionDialog = false
+                                } else {
+                                    Toast.makeText(context, "指令内容不能为空", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        ) {
+                            Text("添加")
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showAddInstructionDialog = false }) {
+                            Text("取消")
+                        }
+                    }
+                )
+            }
+
+            // Edit Instruction Dialog
+            if (showEditInstructionDialog) {
+                AlertDialog(
+                    onDismissRequest = { showEditInstructionDialog = false },
+                    title = { Text("编辑系统指令") },
+                    text = {
+                        OutlinedTextField(
+                            value = draftInstructionText,
+                            onValueChange = { draftInstructionText = it },
+                            label = { Text("指令内容") },
+                            modifier = Modifier.fillMaxWidth(),
+                            minLines = 3
+                        )
+                    },
+                    confirmButton = {
+                        TextButton(
+                            onClick = {
+                                editingInstructionIndex?.let { index ->
+                                    if (draftInstructionText.isNotBlank()) {
+                                        viewModel.updateSystemInstructionPart(index, draftInstructionText)
+                                        showEditInstructionDialog = false
+                                        editingInstructionIndex = null
+                                    } else {
+                                        Toast.makeText(context, "指令内容不能为空", Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+                            }
+                        ) {
+                            Text("保存")
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showEditInstructionDialog = false }) {
+                            Text("取消")
+                        }
+                    }
+                )
+            }
+
+
             Card(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text("工具", style = MaterialTheme.typography.titleMedium)
@@ -308,4 +460,10 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
             }
         )
     }
+}
+
+private fun exportDatabase(context: Context) {
+    val success = DatabaseUtils.exportDatabase(context)
+    val message = if (success) "数据库导出成功！" else "数据库导出失败。"
+    Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
 }

@@ -1,18 +1,9 @@
 package com.exp.memoria.data.repository
 
 import androidx.datastore.core.DataStore
-import androidx.datastore.preferences.core.Preferences
-import androidx.datastore.preferences.core.booleanPreferencesKey
-import androidx.datastore.preferences.core.edit
-import androidx.datastore.preferences.core.floatPreferencesKey
-import androidx.datastore.preferences.core.intPreferencesKey
-import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.*
 import com.exp.memoria.ui.settings.Settings
-import com.exp.memoria.ui.settings.JsonSchemaProperty // Import JsonSchemaProperty
 import kotlinx.coroutines.flow.map
-import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.decodeFromString
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -40,8 +31,6 @@ class SettingsRepositoryImpl @Inject constructor(
         val HATE_SPEECH = floatPreferencesKey("hate_speech")
         val SEXUALLY_EXPLICIT = floatPreferencesKey("sexually_explicit")
         val DANGEROUS_CONTENT = floatPreferencesKey("dangerous_content")
-        val RESPONSE_SCHEMA = stringPreferencesKey("response_schema")
-        val GRAPHICAL_RESPONSE_SCHEMA = stringPreferencesKey("graphical_response_schema")
         val IS_STREAMING_ENABLED = booleanPreferencesKey("is_streaming_enabled")
     }
 
@@ -64,17 +53,6 @@ class SettingsRepositoryImpl @Inject constructor(
         val hateSpeech = it[PreferencesKeys.HATE_SPEECH] ?: 0.0f
         val sexuallyExplicit = it[PreferencesKeys.SEXUALLY_EXPLICIT] ?: 0.0f
         val dangerousContent = it[PreferencesKeys.DANGEROUS_CONTENT] ?: 0.0f
-        val responseSchema = it[PreferencesKeys.RESPONSE_SCHEMA] ?: ""
-        val graphicalResponseSchemaString = it[PreferencesKeys.GRAPHICAL_RESPONSE_SCHEMA]
-        val graphicalResponseSchema = if (!graphicalResponseSchemaString.isNullOrBlank()) {
-            try {
-                Json.decodeFromString<List<JsonSchemaProperty>>(graphicalResponseSchemaString)
-            } catch (e: Exception) {
-                emptyList()
-            }
-        } else {
-            emptyList()
-        }
         val isStreamingEnabled = it[PreferencesKeys.IS_STREAMING_ENABLED] ?: false
 
         Settings(
@@ -96,9 +74,6 @@ class SettingsRepositoryImpl @Inject constructor(
             hateSpeech = hateSpeech, 
             sexuallyExplicit = sexuallyExplicit, 
             dangerousContent = dangerousContent, 
-            responseSchema = responseSchema, 
-            graphicalResponseSchema = graphicalResponseSchema, 
-            isGraphicalSchemaMode = false, // isGraphicalSchemaMode 未持久化
             isStreamingEnabled = isStreamingEnabled
         )
     }
@@ -185,14 +160,6 @@ class SettingsRepositoryImpl @Inject constructor(
 
     override suspend fun updateDangerousContent(value: Float) {
         dataStore.edit { it[PreferencesKeys.DANGEROUS_CONTENT] = value }
-    }
-
-    override suspend fun updateResponseSchema(responseSchema: String) {
-        dataStore.edit { it[PreferencesKeys.RESPONSE_SCHEMA] = responseSchema }
-    }
-
-    override suspend fun updateGraphicalResponseSchema(schema: List<JsonSchemaProperty>) {
-        dataStore.edit { it[PreferencesKeys.GRAPHICAL_RESPONSE_SCHEMA] = Json.encodeToString(schema) }
     }
 
     override suspend fun updateIsStreamingEnabled(isStreamingEnabled: Boolean) {

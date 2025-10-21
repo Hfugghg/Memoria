@@ -26,4 +26,10 @@ interface ConversationHeaderDao {
 
     @Query("SELECT * FROM conversation_header WHERE conversationId = :conversationId")
     suspend fun getConversationHeaderById(conversationId: String): ConversationHeader?
+
+    @Query("UPDATE conversation_header SET responseSchema = :responseSchema WHERE conversationId = :conversationId")
+    suspend fun updateResponseSchema(conversationId: String, responseSchema: String?)
+
+    @Query("UPDATE conversation_header SET systemInstruction = :systemInstruction WHERE conversationId = :conversationId")
+    suspend fun updateSystemInstruction(conversationId: String, systemInstruction: String?)
 }

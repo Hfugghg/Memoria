@@ -1,7 +1,5 @@
 package com.exp.memoria.ui.settings
 
-import com.exp.memoria.ui.settings.JsonSchemaProperty // 导入 JsonSchemaProperty
-
 /**
  * [应用设置数据类]
  *
@@ -26,9 +24,6 @@ import com.exp.memoria.ui.settings.JsonSchemaProperty // 导入 JsonSchemaProper
  * @property hateSpeech 安全设置：仇恨言论内容的屏蔽阈值。
  * @property sexuallyExplicit 安全设置：色情内容的屏蔽阈值。
  * @property dangerousContent 安全设置：危险内容内容的屏蔽阈值。
- * @property responseSchema 用于指定模型返回的 JSON 模式。如果为空，则使用 text/plain。
- * @property graphicalResponseSchema 用于存储图形化编辑的 Response Schema 属性列表。
- * @property isGraphicalSchemaMode 指示当前是否处于图形化编辑模式。
  * @property isStreamingEnabled 是否启用流式输出。
  */
 data class Settings(
@@ -50,8 +45,5 @@ data class Settings(
     val hateSpeech: Float = 0.0f,
     val sexuallyExplicit: Float = 0.0f,
     val dangerousContent: Float = 0.0f,
-    val responseSchema: String = "",
-    val graphicalResponseSchema: List<JsonSchemaProperty> = emptyList(),
-    val isGraphicalSchemaMode: Boolean = false,
     val isStreamingEnabled: Boolean = false
 )

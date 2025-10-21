@@ -1,5 +1,6 @@
 package com.exp.memoria.data.local
 
+import android.util.Log
 import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
@@ -31,7 +32,7 @@ import androidx.room.migration.Migration
  */
 @Database(
     entities = [RawMemory::class, CondensedMemory::class, FTSMemoryIndex::class, ConversationHeader::class],
-    version = 3, // 数据库版本从2升级到3
+    version = 3, // 数据库版本保持为3，但迁移逻辑改变
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -41,9 +42,11 @@ abstract class MemoriaDatabase : RoomDatabase() {
     abstract fun conversationHeaderDao(): ConversationHeaderDao
 
     companion object {
+        private const val TAG = "MemoriaDatabase"
         val FTS_TABLE_CALLBACK = object : Callback() {
             override fun onCreate(db: SupportSQLiteDatabase) {
                 super.onCreate(db)
+                Log.d(TAG, "数据库首次创建，开始初始化FTS5虚拟表和触发器...")
                 // 1. 创建 FTS5 虚拟表 (这部分是正确的)
                 db.execSQL(
                     """
@@ -54,6 +57,7 @@ abstract class MemoriaDatabase : RoomDatabase() {
                 )
                 """.trimIndent()
                 )
+                Log.d(TAG, "FTS5虚拟表 'condensed_memory_fts' 创建成功。")
 
                 // 2. 创建 INSERT 触发器 (这部分是正确的)
                 db.execSQL(
@@ -66,6 +70,8 @@ abstract class MemoriaDatabase : RoomDatabase() {
                 END
                 """.trimIndent()
                 )
+                Log.d(TAG, "INSERT触发器 'condensed_memory_after_insert' 创建成功。")
+
 
                 // 3. 创建 DELETE 触发器 (🔥 最终修正)
                 // 使用标准的 DELETE 语句，而不是特殊的 INSERT
@@ -78,6 +84,8 @@ abstract class MemoriaDatabase : RoomDatabase() {
                 END
                 """.trimIndent()
                 )
+                Log.d(TAG, "DELETE触发器 'condensed_memory_after_delete' 创建成功。")
+
 
                 // 4. 创建 UPDATE 触发器 (🔥 最终修正)
                 // 逻辑分解为先删除旧索引，再插入新索引
@@ -92,6 +100,8 @@ abstract class MemoriaDatabase : RoomDatabase() {
                 END
                 """.trimIndent()
                 )
+                Log.d(TAG, "UPDATE触发器 'condensed_memory_after_update' 创建成功。")
+                Log.d(TAG, "数据库初始化完成。")
             }
         }
 
@@ -109,8 +119,9 @@ abstract class MemoriaDatabase : RoomDatabase() {
         // 数据库迁移，从版本 2 到版本 3
         val MIGRATION_2_3 = object : Migration(2, 3) {
             override fun migrate(db: SupportSQLiteDatabase) {
-                // 为 raw_memory 表的 conversationId 列添加唯一索引
-                db.execSQL("CREATE UNIQUE INDEX index_raw_memory_conversationId ON raw_memory (conversationId)")
+                // 为 conversation_header 表添加 responseSchema 和 systemInstruction 列
+                db.execSQL("ALTER TABLE conversation_header ADD COLUMN responseSchema TEXT")
+                db.execSQL("ALTER TABLE conversation_header ADD COLUMN systemInstruction TEXT")
             }
         }
     }

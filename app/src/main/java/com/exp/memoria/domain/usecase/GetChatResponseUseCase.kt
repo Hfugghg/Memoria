@@ -3,6 +3,7 @@ package com.exp.memoria.domain.usecase
 import android.util.Log
 import com.exp.memoria.data.remote.dto.ChatContent
 import com.exp.memoria.data.remote.dto.Part
+import com.exp.memoria.data.repository.ChatChunkResult
 import com.exp.memoria.data.repository.LlmRepository
 import com.exp.memoria.data.repository.MemoryRepository
 import kotlinx.coroutines.flow.Flow
@@ -36,7 +37,7 @@ class GetChatResponseUseCase @Inject constructor(
         query: String,
         conversationId: String,
         isStreaming: Boolean = false
-    ): Flow<String> {
+    ): Flow<ChatChunkResult> {
         // 在未来的开发中，这里将实现完整的“热记忆”+“冷记忆”+“查询”的上下文组装逻辑
 
         // 1. 获取当前对话的所有原始记忆
@@ -54,7 +55,12 @@ class GetChatResponseUseCase @Inject constructor(
         // 3. 将用户当前的查询作为最新的一条“user”消息，添加到历史记录末尾
         history.add(ChatContent(role = "user", parts = listOf(Part(text = query))))
 
-        // 4. 调用LLM仓库，传入构建好的完整对话历史和流式标志以获取聊天响应
-        return llmRepository.chatResponse(history, isStreaming)
+        // 4. 获取对话的 header，从中提取 systemInstruction 和 responseSchema
+        val conversationHeader = memoryRepository.getConversationHeaderById(conversationId)
+        val systemInstruction = conversationHeader?.systemInstruction
+        val responseSchema = conversationHeader?.responseSchema
+
+        // 5. 调用LLM仓库，这将正确返回 Flow<ChatChunkResult>，并传入 systemInstruction 和 responseSchema
+        return llmRepository.chatResponse(history, systemInstruction, responseSchema, isStreaming)
     }
 }

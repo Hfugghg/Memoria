@@ -91,7 +91,7 @@ fun ConversationHistoryScreen(
                             viewModel.createNewConversation(newConversationId)
                         }
                         navController.navigate("chat?conversationId=$newConversationId") {
-                            popUpTo("conversationHistory") { inclusive = true }
+                            popUpTo("conversationHistory")
                         }
                     }) {
                         Text("新建对话")
@@ -125,7 +125,7 @@ fun ConversationHistoryScreen(
                                     onClick = {
                                         Log.d("ConversationHistoryScreen", "导航到现有对话: ${conversation.conversationId}")
                                         navController.navigate("chat?conversationId=${conversation.conversationId}") {
-                                            popUpTo("conversationHistory") { inclusive = true }
+                                            popUpTo("conversationHistory")
                                         }
                                     },
                                     onLongClick = {
