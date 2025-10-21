@@ -42,7 +42,10 @@ class GetChatResponseUseCase @Inject constructor(
 
         // 1. 获取当前对话的所有原始记忆
         val allMemories = memoryRepository.getAllRawMemoriesForConversation(conversationId)
-        Log.d("GetChatResponseUseCase", "[诊断] UseCase: 为 conversationId: $conversationId 获取了 ${allMemories.size} 条记忆用于构建上下文。")
+        Log.d(
+            "GetChatResponseUseCase",
+            "[诊断] UseCase: 为 conversationId: $conversationId 获取了 ${allMemories.size} 条记忆用于构建上下文。"
+        )
 
         // 2. 将原始记忆转换为符合API数据结构的 ChatContent 对象列表
         val history = allMemories.map { memory ->

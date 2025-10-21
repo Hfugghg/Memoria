@@ -1,7 +1,7 @@
 package com.exp.memoria.ui.chat
 
-import android.util.Log
 import android.app.Application
+import android.util.Log
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -9,19 +9,19 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.workDataOf
 import com.exp.memoria.core.workers.MemoryProcessingWorker
+import com.exp.memoria.data.repository.ChatChunkResult
 import com.exp.memoria.data.repository.MemoryRepository
-import com.exp.memoria.domain.usecase.GetChatResponseUseCase
 import com.exp.memoria.data.repository.SettingsRepository
+import com.exp.memoria.domain.usecase.GetChatResponseUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.util.UUID
+import java.util.*
 import javax.inject.Inject
-import kotlinx.coroutines.delay
-import com.exp.memoria.data.repository.ChatChunkResult
 
 /**
  * [ChatViewModel]
@@ -73,7 +73,10 @@ class ChatViewModel @Inject constructor(
         viewModelScope.launch {
             Log.d("ChatViewModel", "[诊断] 为 conversationId: $conversationId, 页面: $currentPage 加载更多消息")
             val memories = memoryRepository.getRawMemories(conversationId, pageSize, currentPage * pageSize)
-            Log.d("ChatViewModel", "[诊断] 从数据库为 conversationId: $conversationId 获取了 ${memories.size} 条原始记忆。")
+            Log.d(
+                "ChatViewModel",
+                "[诊断] 从数据库为 conversationId: $conversationId 获取了 ${memories.size} 条原始记忆。"
+            )
 
             val chatMessages = memories.reversed().map { memory ->
                 ChatMessage(
@@ -87,7 +90,10 @@ class ChatViewModel @Inject constructor(
 
             _uiState.update { currentState ->
                 val newMessages = chatMessages + currentState.messages
-                Log.d("ChatViewModel", "[诊断] 更新UI状态。之前消息数: ${currentState.messages.size}，之后总消息数: ${newMessages.size}。")
+                Log.d(
+                    "ChatViewModel",
+                    "[诊断] 更新UI状态。之前消息数: ${currentState.messages.size}，之后总消息数: ${newMessages.size}。"
+                )
                 currentState.copy(messages = newMessages)
             }
             currentPage++
@@ -123,7 +129,11 @@ class ChatViewModel @Inject constructor(
             } catch (e: Exception) {
                 _uiState.update { currentState ->
                     currentState.copy(
-                        messages = currentState.messages + ChatMessage(id = UUID.randomUUID(), text = "出错了，请重试", isFromUser = false),
+                        messages = currentState.messages + ChatMessage(
+                            id = UUID.randomUUID(),
+                            text = "出错了，请重试",
+                            isFromUser = false
+                        ),
                         isLoading = false
                     )
                 }
@@ -180,6 +190,7 @@ class ChatViewModel @Inject constructor(
                             delay(15) // 调整此延迟以控制打字速度，15ms是一个比较平滑的值
                         }
                     }
+
                     is ChatChunkResult.Error -> {
                         // [修改]：发生错误，设置标志并更新UI
                         hasErrorOccurred = true
@@ -190,7 +201,8 @@ class ChatViewModel @Inject constructor(
                             val messageIndex = updatedMessages.indexOfFirst { it.id == aiMessageId }
                             if (messageIndex != -1) {
                                 // [修改]：在UI上显示错误。这 *不会* 被保存
-                                updatedMessages[messageIndex] = updatedMessages[messageIndex].copy(text = uiErrorMessage)
+                                updatedMessages[messageIndex] =
+                                    updatedMessages[messageIndex].copy(text = uiErrorMessage)
                                 currentState.copy(messages = updatedMessages)
                             } else {
                                 currentState
@@ -214,7 +226,13 @@ class ChatViewModel @Inject constructor(
                     currentState.copy(messages = updatedMessages)
                 } else {
                     // 如果占位符消息由于某种原因不存在，则添加一条新的错误消息
-                    currentState.copy(messages = currentState.messages + ChatMessage(id = UUID.randomUUID(), text = uiErrorMessage, isFromUser = false))
+                    currentState.copy(
+                        messages = currentState.messages + ChatMessage(
+                            id = UUID.randomUUID(),
+                            text = uiErrorMessage,
+                            isFromUser = false
+                        )
+                    )
                 }
             }
         } finally {
@@ -270,7 +288,11 @@ class ChatViewModel @Inject constructor(
 
                         _uiState.update { currentState ->
                             currentState.copy(
-                                messages = currentState.messages + ChatMessage(id = UUID.randomUUID(), text = response, isFromUser = false),
+                                messages = currentState.messages + ChatMessage(
+                                    id = UUID.randomUUID(),
+                                    text = response,
+                                    isFromUser = false
+                                ),
                                 isLoading = false
                             )
                         }
@@ -287,12 +309,17 @@ class ChatViewModel @Inject constructor(
                         memoryRepository.saveNewMemory(query, "", conversationId)
                         _uiState.update { currentState ->
                             currentState.copy(
-                                messages = currentState.messages + ChatMessage(id = UUID.randomUUID(), text = "未能获取到有效回复，请重试。", isFromUser = false),
+                                messages = currentState.messages + ChatMessage(
+                                    id = UUID.randomUUID(),
+                                    text = "未能获取到有效回复，请重试。",
+                                    isFromUser = false
+                                ),
                                 isLoading = false
                             )
                         }
                     }
                 }
+
                 is ChatChunkResult.Error -> {
                     val errorMessage = result.message
                     Log.w("ChatViewModel", "nonStreamResponse: 收到错误: $errorMessage")
@@ -301,7 +328,11 @@ class ChatViewModel @Inject constructor(
                     // [修改]：只在UI上显示错误
                     _uiState.update { currentState ->
                         currentState.copy(
-                            messages = currentState.messages + ChatMessage(id = UUID.randomUUID(), text = errorMessage, isFromUser = false),
+                            messages = currentState.messages + ChatMessage(
+                                id = UUID.randomUUID(),
+                                text = errorMessage,
+                                isFromUser = false
+                            ),
                             isLoading = false
                         )
                     }
@@ -313,7 +344,11 @@ class ChatViewModel @Inject constructor(
             memoryRepository.saveNewMemory(query, "", conversationId)
             _uiState.update { currentState ->
                 currentState.copy(
-                    messages = currentState.messages + ChatMessage(id = UUID.randomUUID(), text = "非流式响应出错: ${e.message}", isFromUser = false),
+                    messages = currentState.messages + ChatMessage(
+                        id = UUID.randomUUID(),
+                        text = "非流式响应出错: ${e.message}",
+                        isFromUser = false
+                    ),
                     isLoading = false
                 )
             }

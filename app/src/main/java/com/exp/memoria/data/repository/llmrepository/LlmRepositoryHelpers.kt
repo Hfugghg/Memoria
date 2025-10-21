@@ -1,7 +1,7 @@
 package com.exp.memoria.data.repository.llmrepository
 
-import android.util.Log
-import com.exp.memoria.data.remote.dto.*
+import com.exp.memoria.data.remote.dto.GenerationConfig
+import com.exp.memoria.data.remote.dto.SafetySetting
 import com.exp.memoria.data.repository.SettingsRepository
 import com.exp.memoria.ui.settings.HarmBlockThreshold
 import kotlinx.coroutines.flow.first
@@ -96,7 +96,8 @@ class LlmRepositoryHelpers @Inject constructor(
         val effectiveResponseSchema: JsonElement? = responseSchema?.takeIf { it.isNotBlank() }
             ?.let { jsonEncoder.parseToJsonElement(it) }
 
-        val responseMimeType = if (effectiveResponseSchema != null && effectiveResponseSchema != JsonNull) "application/json" else "text/plain"
+        val responseMimeType =
+            if (effectiveResponseSchema != null && effectiveResponseSchema != JsonNull) "application/json" else "text/plain"
 
         // 构建完整的 GenerationConfig
         val generationConfig = GenerationConfig(
@@ -120,8 +121,14 @@ class LlmRepositoryHelpers @Inject constructor(
         val safetySettings = listOf(
             SafetySetting(HARM_CATEGORY_HARASSMENT, getThresholdStringFromFloat(currentSettings.harassment)),
             SafetySetting(HARM_CATEGORY_HATE_SPEECH, getThresholdStringFromFloat(currentSettings.hateSpeech)),
-            SafetySetting(HARM_CATEGORY_SEXUALLY_EXPLICIT, getThresholdStringFromFloat(currentSettings.sexuallyExplicit)),
-            SafetySetting(HARM_CATEGORY_DANGEROUS_CONTENT, getThresholdStringFromFloat(currentSettings.dangerousContent))
+            SafetySetting(
+                HARM_CATEGORY_SEXUALLY_EXPLICIT,
+                getThresholdStringFromFloat(currentSettings.sexuallyExplicit)
+            ),
+            SafetySetting(
+                HARM_CATEGORY_DANGEROUS_CONTENT,
+                getThresholdStringFromFloat(currentSettings.dangerousContent)
+            )
         )
 
         return LlmRequestComponents(responseMimeType, generationConfig, safetySettings)

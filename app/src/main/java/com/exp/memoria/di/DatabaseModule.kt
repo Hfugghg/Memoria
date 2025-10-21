@@ -4,8 +4,8 @@ import android.content.Context
 import androidx.room.Room
 import com.exp.memoria.data.local.MemoriaDatabase
 import com.exp.memoria.data.local.dao.CondensedMemoryDao
+import com.exp.memoria.data.local.dao.ConversationHeaderDao
 import com.exp.memoria.data.local.dao.RawMemoryDao
-import com.exp.memoria.data.local.dao.ConversationHeaderDao // 导入 ConversationHeaderDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn

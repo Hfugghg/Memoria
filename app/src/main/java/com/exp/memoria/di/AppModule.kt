@@ -102,12 +102,18 @@ object AppModule {
     }
 
     @Provides
-    fun provideGetChatResponseUseCase(memoryRepository: MemoryRepository, llmRepository: LlmRepository): GetChatResponseUseCase {
+    fun provideGetChatResponseUseCase(
+        memoryRepository: MemoryRepository,
+        llmRepository: LlmRepository
+    ): GetChatResponseUseCase {
         return GetChatResponseUseCase(memoryRepository, llmRepository)
     }
 
     @Provides
-    fun provideProcessMemoryUseCase(memoryRepository: MemoryRepository, llmRepository: LlmRepository): ProcessMemoryUseCase {
+    fun provideProcessMemoryUseCase(
+        memoryRepository: MemoryRepository,
+        llmRepository: LlmRepository
+    ): ProcessMemoryUseCase {
         return ProcessMemoryUseCase(memoryRepository, llmRepository)
     }
 }

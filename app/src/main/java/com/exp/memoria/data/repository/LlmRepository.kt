@@ -15,6 +15,7 @@ import javax.inject.Singleton
 sealed class ChatChunkResult {
     /** 成功的文本块 */
     data class Success(val text: String) : ChatChunkResult()
+
     /** 发生的错误 */
     data class Error(val message: String) : ChatChunkResult()
 }

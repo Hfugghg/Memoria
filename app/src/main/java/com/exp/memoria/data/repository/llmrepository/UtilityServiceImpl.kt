@@ -3,11 +3,7 @@ package com.exp.memoria.data.repository.llmrepository
 import android.util.Log
 import com.exp.memoria.data.remote.api.LlmApiService
 import com.exp.memoria.data.remote.api.ModelDetail
-import com.exp.memoria.data.remote.dto.EmbeddingContent
-import com.exp.memoria.data.remote.dto.EmbeddingRequest
-import com.exp.memoria.data.remote.dto.LlmRequest
-import com.exp.memoria.data.remote.dto.ChatContent
-import com.exp.memoria.data.remote.dto.Part
+import com.exp.memoria.data.remote.dto.*
 import kotlinx.serialization.encodeToString
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -92,11 +88,15 @@ class UtilityServiceImpl @Inject constructor(
      * @return Pair<List<ModelDetail>, String?> 包含模型列表和下一页的令牌。
      */
     override suspend fun getAvailableModels(apiKey: String, pageToken: String?): Pair<List<ModelDetail>, String?> {
-        val requestUrl = "${helpers.baseLlmApiUrl}v1beta/models?key=$apiKey" + (pageToken?.let { "&pageToken=$it" } ?: "")
+        val requestUrl =
+            "${helpers.baseLlmApiUrl}v1beta/models?key=$apiKey" + (pageToken?.let { "&pageToken=$it" } ?: "")
         Log.d("UtilityServiceImpl", "获取可用模型请求 URL: $requestUrl")
         Log.d("UtilityServiceImpl", "获取可用模型请求 pageToken: $pageToken")
         val response = llmApiService.getAvailableModels(apiKey, pageToken)
-        Log.d("UtilityServiceImpl", "获取可用模型响应, 模型数量: ${response.models.size}, 下一页token: ${response.nextPageToken}")
+        Log.d(
+            "UtilityServiceImpl",
+            "获取可用模型响应, 模型数量: ${response.models.size}, 下一页token: ${response.nextPageToken}"
+        )
         return Pair(response.models, response.nextPageToken)
     }
 }

@@ -3,40 +3,20 @@ package com.exp.memoria.ui.chat
 import android.util.Log
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TextField
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
-import java.util.UUID
 import kotlinx.coroutines.launch
-import androidx.compose.foundation.layout.Box
+import java.text.SimpleDateFormat
+import java.util.*
 
 /**
  * [对话历史记录页面]
@@ -123,14 +103,18 @@ fun ConversationHistoryScreen(
                                 .fillMaxWidth()
                                 .combinedClickable(
                                     onClick = {
-                                        Log.d("ConversationHistoryScreen", "导航到现有对话: ${conversation.conversationId}")
+                                        Log.d(
+                                            "ConversationHistoryScreen",
+                                            "导航到现有对话: ${conversation.conversationId}"
+                                        )
                                         navController.navigate("chat?conversationId=${conversation.conversationId}") {
                                             popUpTo("conversationHistory")
                                         }
                                     },
                                     onLongClick = {
                                         selectedConversationIdForMenu = conversation.conversationId
-                                        selectedConversationNameForMenu = conversation.name.ifBlank { "新对话" } // 当名称为空时，显示“新对话”
+                                        selectedConversationNameForMenu =
+                                            conversation.name.ifBlank { "新对话" } // 当名称为空时，显示“新对话”
                                         showDropdownMenu = true
                                     }
                                 )

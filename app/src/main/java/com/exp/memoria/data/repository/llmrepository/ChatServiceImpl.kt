@@ -2,13 +2,14 @@ package com.exp.memoria.data.repository.llmrepository
 
 import android.util.Log
 import com.exp.memoria.data.remote.api.LlmApiService
-import com.exp.memoria.data.remote.dto.*
+import com.exp.memoria.data.remote.dto.ChatContent
+import com.exp.memoria.data.remote.dto.LlmRequest
+import com.exp.memoria.data.remote.dto.LlmResponse
+import com.exp.memoria.data.remote.dto.SystemInstruction
 import com.exp.memoria.data.repository.ChatChunkResult
-import com.exp.memoria.data.repository.SettingsRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
 import java.util.concurrent.CancellationException
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -65,7 +66,8 @@ class ChatServiceImpl @Inject constructor(
 
         if (isStreaming) {
             Log.d("ChatServiceImpl", "LLM 聊天流式请求体: ${helpers.jsonEncoder.encodeToString(request)}")
-            val requestUrl = "${helpers.baseLlmApiUrl}v1beta/models/${modelId}:streamGenerateContent?alt=sse&key=${apiKey}"
+            val requestUrl =
+                "${helpers.baseLlmApiUrl}v1beta/models/${modelId}:streamGenerateContent?alt=sse&key=${apiKey}"
             Log.d("ChatServiceImpl", "LLM 聊天流式请求 URL: $requestUrl")
 
             try {
@@ -173,7 +175,10 @@ class ChatServiceImpl @Inject constructor(
                     emit(ChatChunkResult.Error(errorMsg))
                 }
             } catch (_: CancellationException) {
-                Log.d("ChatServiceImpl", "Flow was cancelled by the collector, which is expected for non-streaming calls.")
+                Log.d(
+                    "ChatServiceImpl",
+                    "Flow was cancelled by the collector, which is expected for non-streaming calls."
+                )
             } catch (e: Exception) {
                 Log.e("ChatServiceImpl", "获取 LLM 聊天响应失败", e)
                 emit(ChatChunkResult.Error("抱歉，无法获取回复。错误：${e.localizedMessage}"))
