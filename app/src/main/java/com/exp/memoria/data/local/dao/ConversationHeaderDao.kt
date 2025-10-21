@@ -28,4 +28,7 @@ interface ConversationHeaderDao {
 
     @Query("UPDATE conversation_header SET systemInstruction = :systemInstruction WHERE conversationId = :conversationId")
     suspend fun updateSystemInstruction(conversationId: String, systemInstruction: String?)
+
+    @Query("UPDATE conversation_header SET totalTokenCount = :totalTokenCount WHERE conversationId = :conversationId")
+    suspend fun updateTotalTokenCount(conversationId: String, totalTokenCount: Int)
 }

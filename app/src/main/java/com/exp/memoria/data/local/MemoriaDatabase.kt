@@ -32,7 +32,7 @@ import com.exp.memoria.data.local.entity.RawMemory
  */
 @Database(
     entities = [RawMemory::class, CondensedMemory::class, FTSMemoryIndex::class, ConversationHeader::class],
-    version = 3, // 数据库版本保持为3，但迁移逻辑改变
+    version = 4, // 数据库版本从 3 增加到 4
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -110,7 +110,6 @@ abstract class MemoriaDatabase : RoomDatabase() {
             override fun migrate(db: SupportSQLiteDatabase) {
                 // 为 conversation_header 表添加 name 列
                 db.execSQL("ALTER TABLE conversation_header ADD COLUMN name TEXT NOT NULL DEFAULT '新对话'")
-
                 // 为 condensed_memory 表添加 conversationId 列
                 db.execSQL("ALTER TABLE condensed_memory ADD COLUMN conversationId TEXT NOT NULL DEFAULT ''")
             }
@@ -122,6 +121,15 @@ abstract class MemoriaDatabase : RoomDatabase() {
                 // 为 conversation_header 表添加 responseSchema 和 systemInstruction 列
                 db.execSQL("ALTER TABLE conversation_header ADD COLUMN responseSchema TEXT")
                 db.execSQL("ALTER TABLE conversation_header ADD COLUMN systemInstruction TEXT")
+            }
+        }
+
+        // 数据库迁移，从版本 3 到版本 4：添加 totalTokenCount 列
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                Log.d(TAG, "执行 MIGRATION_3_4: 为 conversation_header 表添加 totalTokenCount 列")
+                // 添加 totalTokenCount 列，默认值为 0
+                db.execSQL("ALTER TABLE conversation_header ADD COLUMN totalTokenCount INTEGER NOT NULL DEFAULT 0")
             }
         }
     }

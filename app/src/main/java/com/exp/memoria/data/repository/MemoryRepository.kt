@@ -50,6 +50,7 @@ interface MemoryRepository {
     suspend fun updateResponseSchema(conversationId: String, responseSchema: String?)
     suspend fun updateSystemInstruction(conversationId: String, systemInstruction: String?)
     suspend fun getConversationHeaderById(conversationId: String): ConversationHeader?
+    suspend fun updateTotalTokenCount(conversationId: String, totalTokenCount: Int)
 }
 
 class MemoryRepositoryImpl @Inject constructor(
@@ -207,5 +208,9 @@ class MemoryRepositoryImpl @Inject constructor(
 
     override suspend fun getConversationHeaderById(conversationId: String): ConversationHeader? {
         return conversationHeaderDao.getConversationHeaderById(conversationId)
+    }
+
+    override suspend fun updateTotalTokenCount(conversationId: String, totalTokenCount: Int) {
+        conversationHeaderDao.updateTotalTokenCount(conversationId, totalTokenCount)
     }
 }

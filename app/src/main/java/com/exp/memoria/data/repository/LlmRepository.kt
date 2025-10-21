@@ -13,8 +13,12 @@ import javax.inject.Singleton
  * 这允许上游 (ViewModel) 正确处理 UI 显示和数据库存储。
  */
 sealed class ChatChunkResult {
-    /** 成功的文本块 */
-    data class Success(val text: String) : ChatChunkResult()
+    /**
+     * 成功的文本块
+     * @param text 收到的文本片段。
+     * @param totalTokenCount (可选) 截止到当前数据块，本次请求已消耗的总令牌数。
+     */
+    data class Success(val text: String, val totalTokenCount: Int? = null) : ChatChunkResult()
 
     /** 发生的错误 */
     data class Error(val message: String) : ChatChunkResult()
