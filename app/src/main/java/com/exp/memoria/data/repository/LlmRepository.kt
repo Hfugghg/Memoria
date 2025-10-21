@@ -3,19 +3,8 @@ package com.exp.memoria.data.repository
 import android.util.Log
 import com.exp.memoria.data.remote.api.LlmApiService
 import com.exp.memoria.data.remote.api.ModelDetail
-import com.exp.memoria.data.remote.dto.ChatContent
-import com.exp.memoria.data.remote.dto.EmbeddingContent
-import com.exp.memoria.data.remote.dto.EmbeddingRequest
-import com.exp.memoria.data.remote.dto.GenerationConfig
-import com.exp.memoria.data.remote.dto.LlmRequest
-import com.exp.memoria.data.remote.dto.LlmResponse
-import com.exp.memoria.data.remote.dto.Part
-import com.exp.memoria.data.remote.dto.SafetySetting
+import com.exp.memoria.data.remote.dto.*
 import com.exp.memoria.ui.settings.HarmBlockThreshold
-import com.exp.memoria.ui.settings.JsonSchemaProperty
-import com.exp.memoria.ui.settings.JsonSchemaPropertyType
-import com.exp.memoria.ui.settings.Settings
-import com.exp.memoria.ui.settings.StringFormat
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
@@ -23,11 +12,6 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
-import kotlinx.serialization.json.add
-import kotlinx.serialization.json.buildJsonArray
-import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.put
-import kotlinx.serialization.json.putJsonObject
 import java.util.concurrent.CancellationException
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -112,53 +96,53 @@ class LlmRepository @Inject constructor(
         return model.removePrefix("models/")
     }
 
-    /**
-     * 将图形化编辑的属性列表转换为 JSON Schema 对象。
-     * @param properties 待转换的属性列表。
-     * @return 对应的 JSON Schema 对象。
-     */
-    private fun convertGraphicalSchemaToJson(properties: List<JsonSchemaProperty>): JsonElement {
-        if (properties.isEmpty()) {
-            return JsonNull
-        }
-
-        val propertiesMap = buildJsonObject {
-            properties.forEach { prop ->
-                putJsonObject(prop.name) {
-                    put("type", prop.type.name.lowercase())
-                    if (prop.description.isNotBlank()) {
-                        put("description", prop.description)
-                    }
-                    when (prop.type) {
-                        JsonSchemaPropertyType.STRING -> {
-                            if (prop.stringFormat != StringFormat.NONE) {
-                                put("format", prop.stringFormat.name.lowercase())
-                            }
-                        }
-                        JsonSchemaPropertyType.NUMBER -> {
-                            prop.numberMinimum?.let { put("minimum", it) }
-                            prop.numberMaximum?.let { put("maximum", it) }
-                        }
-                        else -> {
-                            // 对于 OBJECT 和 ARRAY 简化处理，暂时不添加嵌套属性
-                        }
-                    }
-                }
-            }
-        }
-
-        val requiredProperties = properties.filter { it.required }.map { it.name }
-
-        return buildJsonObject {
-            put("type", "object")
-            put("properties", propertiesMap)
-            if (requiredProperties.isNotEmpty()) {
-                put("required", buildJsonArray {
-                    requiredProperties.forEach { add(it) }
-                })
-            }
-        }
-    }
+//    /**
+//     * 将图形化编辑的属性列表转换为 JSON Schema 对象。
+//     * @param properties 待转换的属性列表。
+//     * @return 对应的 JSON Schema 对象。
+//     */
+//    private fun convertGraphicalSchemaToJson(properties: List<JsonSchemaProperty>): JsonElement {
+//        if (properties.isEmpty()) {
+//            return JsonNull
+//        }
+//
+//        val propertiesMap = buildJsonObject {
+//            properties.forEach { prop ->
+//                putJsonObject(prop.name) {
+//                    put("type", prop.type.name.lowercase())
+//                    if (prop.description.isNotBlank()) {
+//                        put("description", prop.description)
+//                    }
+//                    when (prop.type) {
+//                        JsonSchemaPropertyType.STRING -> {
+//                            if (prop.stringFormat != StringFormat.NONE) {
+//                                put("format", prop.stringFormat.name.lowercase())
+//                            }
+//                        }
+//                        JsonSchemaPropertyType.NUMBER -> {
+//                            prop.numberMinimum?.let { put("minimum", it) }
+//                            prop.numberMaximum?.let { put("maximum", it) }
+//                        }
+//                        else -> {
+//                            // 对于 OBJECT 和 ARRAY 简化处理，暂时不添加嵌套属性
+//                        }
+//                    }
+//                }
+//            }
+//        }
+//
+//        val requiredProperties = properties.filter { it.required }.map { it.name }
+//
+//        return buildJsonObject {
+//            put("type", "object")
+//            put("properties", propertiesMap)
+//            if (requiredProperties.isNotEmpty()) {
+//                put("required", buildJsonArray {
+//                    requiredProperties.forEach { add(it) }
+//                })
+//            }
+//        }
+//    }
 
     /**
      * 将 Float 类型的安全阈值映射为 String 类型。
@@ -181,17 +165,14 @@ class LlmRepository @Inject constructor(
      * 从设置中构建 LLM 请求中可复用的配置组件：
      * responseMimeType, GenerationConfig, 和 safetySettings。
      *
+     * @param responseSchema 当前对话的 Response Schema JSON 字符串。
      * @return 包含所有配置组件的 LlmRequestComponents 数据类。
      */
-    private suspend fun buildLlmRequestComponents(): LlmRequestComponents {
+    private suspend fun buildLlmRequestComponents(responseSchema: String?): LlmRequestComponents {
         val currentSettings = settingsRepository.settingsFlow.first()
 
-        val effectiveResponseSchema: JsonElement? = if (currentSettings.isGraphicalSchemaMode) {
-            // 使用宽松的 jsonEncoder 来处理 JSON 元素
-            convertGraphicalSchemaToJson(currentSettings.graphicalResponseSchema)
-        } else {
-            currentSettings.responseSchema.takeIf { it.isNotBlank() }?.let { jsonEncoder.parseToJsonElement(it) }
-        }
+        val effectiveResponseSchema: JsonElement? = responseSchema?.takeIf { it.isNotBlank() }
+            ?.let { jsonEncoder.parseToJsonElement(it) }
 
         val responseMimeType = if (effectiveResponseSchema != null && effectiveResponseSchema != JsonNull) "application/json" else "text/plain"
 
@@ -228,15 +209,27 @@ class LlmRepository @Inject constructor(
      * 调用 LLM API 以获取对话回复，支持流式和非流式输出。
      *
      * @param history 一个包含完整对话历史的 `ChatContent` 列表。
+     * @param systemInstruction (可选) 指导模型行为的系统指令。
+     * @param responseSchema (可选) 定义期望响应格式的 JSON Schema。
      * @param isStreaming 是否开启流式输出。默认为 `false` (非流式)。
      * @return 一个 `Flow<ChatChunkResult>`，用于接收来自 LLM 的文本回复片段或错误。
      * 如果 `isStreaming` 为 `false`，则 `Flow` 只会发出一个完整的 `Success` 或 `Error`。
      */
-    fun chatResponse(history: List<ChatContent>, isStreaming: Boolean = false): Flow<ChatChunkResult> = flow {
+    fun chatResponse(
+        history: List<ChatContent>,
+        systemInstruction: String?,
+        responseSchema: String?,
+        isStreaming: Boolean = false
+    ): Flow<ChatChunkResult> = flow {
         // 使用重构后的函数获取组件
-        val components = buildLlmRequestComponents()
+        val components = buildLlmRequestComponents(responseSchema)
         val generationConfig = components.generationConfig
         val safetySettings = components.safetySettings
+
+        // TODO: 将 systemInstruction 添加到请求中。
+        // 这需要修改 LlmRequest DTO 以包含一个可空的 'systemInstruction' 字段。
+        // 例如: `val systemInstruction: SystemInstruction? = null`
+        // 并在这里进行构造。
 
         val request = LlmRequest(
             contents = history,
@@ -368,12 +361,12 @@ class LlmRepository @Inject constructor(
      * 调用 LLM API 为给定的文本生成摘要。
      *
      * @param text 需要被总结的原始文本。
+     * @param responseSchema (可选) 定义期望响应格式的 JSON Schema。
      * @return 从 LLM 返回的摘要文本。如果请求失败或响应格式不正确，则返回一个默认的错误消息。
      */
-    suspend fun getSummary(text: String): String {
-        // ... [getSummary 函数保持不变，因为它不影响聊天流] ...
+    suspend fun getSummary(text: String, responseSchema: String?): String {
         // ... [如果 getSummary 也需要这种错误处理，可以应用类似模式，但目前保持不变] ...
-        val components = buildLlmRequestComponents()
+        val components = buildLlmRequestComponents(responseSchema)
         val generationConfig = components.generationConfig
         val safetySettings = components.safetySettings
 

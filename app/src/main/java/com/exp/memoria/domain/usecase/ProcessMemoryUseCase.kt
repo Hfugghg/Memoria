@@ -57,12 +57,16 @@ class ProcessMemoryUseCase @Inject constructor(
             dialogue = "AI: ${modelMemory.text}"
         }
 
-        // 4. 为拼接好的对话生成摘要
-        val summary = llmRepository.getSummary(dialogue)
-        // 5. 为生成的摘要创建向量嵌入
+        // 4. 获取当前对话的 responseSchema
+        val conversationHeader = memoryRepository.getConversationHeaderById(modelMemory.conversationId)
+        val responseSchema = conversationHeader?.responseSchema
+
+        // 5. 为拼接好的对话生成摘要
+        val summary = llmRepository.getSummary(dialogue, responseSchema)
+        // 6. 为生成的摘要创建向量嵌入
         val embedding = llmRepository.getEmbedding(summary)
 
-        // 6. 将处理好的摘要和向量更新到数据库
+        // 7. 将处理好的摘要和向量更新到数据库
         memoryRepository.updateProcessedMemory(memoryId, summary, embedding)
     }
 }

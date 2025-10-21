@@ -2,7 +2,6 @@ package com.exp.memoria.data.repository
 
 import com.exp.memoria.ui.settings.Settings
 import kotlinx.coroutines.flow.Flow
-import com.exp.memoria.ui.settings.JsonSchemaProperty // 导入 JsonSchemaProperty
 
 interface SettingsRepository {
     val settingsFlow: Flow<Settings>
@@ -24,7 +23,5 @@ interface SettingsRepository {
     suspend fun updateHateSpeech(value: Float)
     suspend fun updateSexuallyExplicit(value: Float)
     suspend fun updateDangerousContent(value: Float)
-    suspend fun updateResponseSchema(responseSchema: String)
-    suspend fun updateGraphicalResponseSchema(schema: List<JsonSchemaProperty>)
     suspend fun updateIsStreamingEnabled(isStreamingEnabled: Boolean)
 }

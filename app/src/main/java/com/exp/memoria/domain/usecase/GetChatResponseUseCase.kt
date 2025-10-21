@@ -55,7 +55,12 @@ class GetChatResponseUseCase @Inject constructor(
         // 3. 将用户当前的查询作为最新的一条“user”消息，添加到历史记录末尾
         history.add(ChatContent(role = "user", parts = listOf(Part(text = query))))
 
-        // 4. 调用LLM仓库，这将正确返回 Flow<ChatChunkResult>
-        return llmRepository.chatResponse(history, isStreaming)
+        // 4. 获取对话的 header，从中提取 systemInstruction 和 responseSchema
+        val conversationHeader = memoryRepository.getConversationHeaderById(conversationId)
+        val systemInstruction = conversationHeader?.systemInstruction
+        val responseSchema = conversationHeader?.responseSchema
+
+        // 5. 调用LLM仓库，这将正确返回 Flow<ChatChunkResult>，并传入 systemInstruction 和 responseSchema
+        return llmRepository.chatResponse(history, systemInstruction, responseSchema, isStreaming)
     }
 }

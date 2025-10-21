@@ -51,7 +51,12 @@ fun MemoriaApp() {
             val conversationId = backStackEntry.arguments?.getString("conversationId")
             ChatScreen(navController = navController, conversationId = conversationId)
         }
-        composable("settings") {
+        composable(
+            route = "settings/{conversationId}",
+            arguments = listOf(navArgument("conversationId") {
+                type = NavType.StringType
+            })
+        ) {
             SettingsScreen()
         }
         composable("conversationHistory") {

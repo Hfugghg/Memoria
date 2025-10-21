@@ -1,6 +1,8 @@
 package com.exp.memoria.ui.settings.settingsscreen
 
+import android.content.Context
 import android.util.Log
+import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -17,9 +19,11 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.exp.memoria.ui.settings.SettingsViewModel
+import com.exp.memoria.utils.DatabaseUtils
 
 /**
  * ## 设置界面的主 Composable UI
@@ -40,14 +44,16 @@ import com.exp.memoria.ui.settings.SettingsViewModel
 fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
     // 从 ViewModel 中收集状态
     val settings by viewModel.settingsState.collectAsState()
+    val systemInstruction by viewModel.systemInstruction.collectAsState()
+    val responseSchema by viewModel.responseSchema.collectAsState()
     val showModelSelectionDialog by viewModel.showModelSelectionDialog.collectAsState()
     val availableModels by viewModel.availableModels.collectAsState()
     val isLoadingModels by viewModel.isLoadingModels.collectAsState()
     val showApiKeyError by viewModel.showApiKeyError.collectAsState()
     val isGraphicalSchemaMode by viewModel.isGraphicalSchemaMode.collectAsState()
     val graphicalSchemaProperties by viewModel.graphicalSchemaProperties.collectAsState()
-    val currentResponseSchemaString by viewModel.currentResponseSchemaString.collectAsState()
     val draftProperty by viewModel.draftProperty.collectAsState() // 获取草稿属性
+    val context = LocalContext.current
 
     // 页面整体脚手架
     Scaffold(
@@ -123,24 +129,15 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
                 )
             } else {
                 OutlinedTextField(
-                    value = settings.responseSchema,
+                    value = responseSchema, // 绑定到新的 ViewModel 状态
                     onValueChange = viewModel::onResponseSchemaChange,
                     label = { Text("Response Schema (JSON)") },
                     placeholder = { Text("例如: {\"type\": \"object\", \"properties\": {\"name\": {\"type\": \"string\"}} }") },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 5
                 )
             }
 
-            // 显示当前生效的 Response Schema JSON 字符串
-            Spacer(modifier = Modifier.height(8.dp))
-            OutlinedTextField(
-                value = currentResponseSchemaString,
-                onValueChange = { /* 只读 */ },
-                label = { Text("实际生效的 Response Schema JSON") },
-                readOnly = true,
-                modifier = Modifier.fillMaxWidth(),
-                minLines = 3
-            )
             Text(
                 text = "提示: 如果 Response Schema 为空，response_mime_type 将为 text/plain；否则为 application/json。",
                 style = MaterialTheme.typography.bodySmall,
@@ -155,6 +152,16 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
                     checked = settings.useLocalStorage,
                     onCheckedChange = viewModel::onUseLocalStorageChange
                 )
+            }
+
+            // 导出数据库按钮
+            Button(
+                onClick = {
+                    exportDatabase(context)
+                },
+                modifier = Modifier.padding(top = 8.dp)
+            ) {
+                Text("导出数据库")
             }
 
             // 流式输出开关
@@ -176,13 +183,16 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
             Text("LLM 高级设置", style = MaterialTheme.typography.titleLarge)
             Spacer(modifier = Modifier.height(8.dp))
 
-            // 其他高级设置的占位符
-            Card(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text("系统指令", style = MaterialTheme.typography.titleMedium)
-                    Text("// 尚未实现", style = MaterialTheme.typography.bodySmall)
-                }
-            }
+            // System Instruction
+            OutlinedTextField(
+                value = systemInstruction,
+                onValueChange = viewModel::onSystemInstructionChange,
+                label = { Text("系统指令") },
+                placeholder = { Text("例如：你是一个专业的翻译，只翻译文本，不做任何解释。") },
+                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                minLines = 3
+            )
+
             Card(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text("工具", style = MaterialTheme.typography.titleMedium)
@@ -308,4 +318,10 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
             }
         )
     }
+}
+
+private fun exportDatabase(context: Context) {
+    val success = DatabaseUtils.exportDatabase(context)
+    val message = if (success) "数据库导出成功！" else "数据库导出失败。"
+    Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
 }

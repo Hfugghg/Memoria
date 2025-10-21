@@ -1,9 +1,11 @@
+@file:OptIn(InternalSerializationApi::class)
 package com.exp.memoria.ui.settings
 
+import kotlinx.serialization.InternalSerializationApi
 import kotlinx.serialization.Serializable
 
 /**
- * [JSON Schema 属性类型枚举]
+ * JSON Schema 属性类型枚举
  * 定义了图形化 Response Schema 编辑器中支持的 JSON 数据类型。
  */
 @Serializable
@@ -16,7 +18,7 @@ enum class JsonSchemaPropertyType(val displayName: String, val description: Stri
 }
 
 /**
- * [字符串类型格式枚举]
+ * 字符串类型格式枚举
  * 定义了字符串类型可以拥有的特定格式。
  */
 @Serializable
@@ -30,7 +32,7 @@ enum class StringFormat(val displayName: String, val description: String) {
 }
 
 /**
- * [JSON Schema 属性数据类]
+ * JSON Schema 属性数据类
  * 用于在图形化界面中表示单个 JSON 属性的结构。
  *
  * @property id 唯一标识符，用于在列表中区分不同的属性。
@@ -55,4 +57,22 @@ data class JsonSchemaProperty(
     val numberMaximum: Double? = null,
     val required: Boolean = false
     // OBJECT/ARRAY 类型的简化处理，暂时不提供嵌套编辑
+)
+
+/**
+ * 系统指令的数据模型
+ * 包含一个或多个指令部分（Part）。
+ */
+@Serializable
+data class SystemInstruction(
+    val parts: List<Part>
+)
+
+/**
+ * 单个指令部分
+ * 包含具体的文本内容。
+ */
+@Serializable
+data class Part(
+    val text: String
 )

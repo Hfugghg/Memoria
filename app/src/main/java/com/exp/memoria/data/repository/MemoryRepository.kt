@@ -47,6 +47,9 @@ interface MemoryRepository {
     suspend fun updateConversationLastUpdate(conversationId: String, timestamp: Long)
     suspend fun deleteConversation(conversationId: String)
     suspend fun renameConversation(conversationId: String, newName: String)
+    suspend fun updateResponseSchema(conversationId: String, responseSchema: String?)
+    suspend fun updateSystemInstruction(conversationId: String, systemInstruction: String?)
+    suspend fun getConversationHeaderById(conversationId: String): ConversationHeader?
 }
 
 class MemoryRepositoryImpl @Inject constructor(
@@ -158,13 +161,10 @@ class MemoryRepositoryImpl @Inject constructor(
 
     override suspend fun renameConversation(conversationId: String, newName: String) {
         Log.d("MemoryRepository", "Attempting to rename conversation. ID: $conversationId, New Name: $newName")
-        val header = conversationHeaderDao.getConversationHeaderById(conversationId)
-        header?.let {
-            Log.d("MemoryRepository", "Found existing header: $it")
-            val updatedHeader = ConversationHeader(
-                conversationId = it.conversationId,
+        conversationHeaderDao.getConversationHeaderById(conversationId)?.let { header ->
+            Log.d("MemoryRepository", "Found existing header: $header")
+            val updatedHeader = header.copy(
                 name = newName,
-                creationTimestamp = it.creationTimestamp,
                 lastUpdateTimestamp = System.currentTimeMillis()
             )
             Log.d("MemoryRepository", "Updating header to: $updatedHeader")
@@ -173,5 +173,33 @@ class MemoryRepositoryImpl @Inject constructor(
         } ?: run {
             Log.w("MemoryRepository", "Conversation header not found for ID: $conversationId. Cannot rename.")
         }
+    }
+
+    override suspend fun updateResponseSchema(conversationId: String, responseSchema: String?) {
+        Log.d("MemoryRepository", "[Schema] Attempting to update for ID: $conversationId")
+        conversationHeaderDao.getConversationHeaderById(conversationId)?.let { header ->
+            Log.d("MemoryRepository", "[Schema] Found header. Current schema: '${header.responseSchema}'. New schema: '$responseSchema'")
+            val updatedHeader = header.copy(responseSchema = responseSchema)
+            conversationHeaderDao.update(updatedHeader)
+            Log.d("MemoryRepository", "[Schema] DAO update called for ID: $conversationId")
+        } ?: run {
+            Log.w("MemoryRepository", "[Schema] Header NOT FOUND for ID: $conversationId. Update failed.")
+        }
+    }
+
+    override suspend fun updateSystemInstruction(conversationId: String, systemInstruction: String?) {
+        Log.d("MemoryRepository", "[Instruction] Attempting to update for ID: $conversationId")
+        conversationHeaderDao.getConversationHeaderById(conversationId)?.let { header ->
+            Log.d("MemoryRepository", "[Instruction] Found header. Current instruction: '${header.systemInstruction}'. New instruction: '$systemInstruction'")
+            val updatedHeader = header.copy(systemInstruction = systemInstruction)
+            conversationHeaderDao.update(updatedHeader)
+            Log.d("MemoryRepository", "[Instruction] DAO update called for ID: $conversationId")
+        } ?: run {
+            Log.w("MemoryRepository", "[Instruction] Header NOT FOUND for ID: $conversationId. Update failed.")
+        }
+    }
+
+    override suspend fun getConversationHeaderById(conversationId: String): ConversationHeader? {
+        return conversationHeaderDao.getConversationHeaderById(conversationId)
     }
 }
