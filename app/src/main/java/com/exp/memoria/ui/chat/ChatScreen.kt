@@ -17,8 +17,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import kotlinx.coroutines.launch
 
-// import androidx.lifecycle.SavedStateHandle // 不再需要直接导入
-
 /**
  * [聊天界面的Compose UI]
  *
