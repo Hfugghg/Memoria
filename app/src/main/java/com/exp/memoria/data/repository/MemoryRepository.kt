@@ -178,7 +178,10 @@ class MemoryRepositoryImpl @Inject constructor(
     override suspend fun updateResponseSchema(conversationId: String, responseSchema: String?) {
         Log.d("MemoryRepository", "[Schema] Attempting to update for ID: $conversationId")
         conversationHeaderDao.getConversationHeaderById(conversationId)?.let { header ->
-            Log.d("MemoryRepository", "[Schema] Found header. Current schema: '${header.responseSchema}'. New schema: '$responseSchema'")
+            Log.d(
+                "MemoryRepository",
+                "[Schema] Found header. Current schema: '${header.responseSchema}'. New schema: '$responseSchema'"
+            )
             val updatedHeader = header.copy(responseSchema = responseSchema)
             conversationHeaderDao.update(updatedHeader)
             Log.d("MemoryRepository", "[Schema] DAO update called for ID: $conversationId")
@@ -190,7 +193,10 @@ class MemoryRepositoryImpl @Inject constructor(
     override suspend fun updateSystemInstruction(conversationId: String, systemInstruction: String?) {
         Log.d("MemoryRepository", "[Instruction] Attempting to update for ID: $conversationId")
         conversationHeaderDao.getConversationHeaderById(conversationId)?.let { header ->
-            Log.d("MemoryRepository", "[Instruction] Found header. Current instruction: '${header.systemInstruction}'. New instruction: '$systemInstruction'")
+            Log.d(
+                "MemoryRepository",
+                "[Instruction] Found header. Current instruction: '${header.systemInstruction}'. New instruction: '$systemInstruction'"
+            )
             val updatedHeader = header.copy(systemInstruction = systemInstruction)
             conversationHeaderDao.update(updatedHeader)
             Log.d("MemoryRepository", "[Instruction] DAO update called for ID: $conversationId")

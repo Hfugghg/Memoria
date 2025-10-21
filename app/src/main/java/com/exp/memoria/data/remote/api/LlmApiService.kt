@@ -1,26 +1,24 @@
 package com.exp.memoria.data.remote.api
 
+import android.annotation.SuppressLint
 import com.exp.memoria.data.remote.dto.EmbeddingRequest
 import com.exp.memoria.data.remote.dto.EmbeddingResponse
 import com.exp.memoria.data.remote.dto.LlmRequest
 import com.exp.memoria.data.remote.dto.LlmResponse
 import kotlinx.serialization.Serializable
 import okhttp3.ResponseBody
-import retrofit2.Response // <-- 关键修改：添加导入
-import retrofit2.http.Body
-import retrofit2.http.GET
-import retrofit2.http.POST
-import retrofit2.http.Path
-import retrofit2.http.Query
-import retrofit2.http.Streaming
+import retrofit2.Response
+import retrofit2.http.*
 
 // 响应模型列表的DTO
+@SuppressLint("UnsafeOptInUsageError")
 @Serializable
 data class ModelsResponse(
     val models: List<ModelDetail>,
     val nextPageToken: String? = null
 )
 
+@SuppressLint("UnsafeOptInUsageError")
 @Serializable
 data class ModelDetail(
     val name: String,

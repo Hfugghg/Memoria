@@ -17,8 +17,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import kotlinx.coroutines.launch
 
-// import androidx.lifecycle.SavedStateHandle // 不再需要直接导入
-
 /**
  * [聊天界面的Compose UI]
  *
@@ -89,7 +87,12 @@ fun ChatScreen(
                 }
             )
         },
-        bottomBar = { ChatInputBar(onSendMessage = { viewModel.sendMessage(it) }) }
+        bottomBar = {
+            ChatInputBar(
+                onSendMessage = { viewModel.sendMessage(it) },
+                isLoading = uiState.isLoading // 传递 isLoading 状态
+            )
+        }
     ) { paddingValues ->
         LazyColumn(
             state = listState,
@@ -150,10 +153,14 @@ fun MessageBubble(message: ChatMessage) {
  * 这是一个可组合函数，提供了文本输入框和发送按钮，用于用户输入和发送消息。
  *
  * @param onSendMessage 当用户点击发送按钮时触发的回调，参数为输入的文本内容。
+ * @param isLoading 指示LLM是否正在响应，用于禁用发送按钮。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ChatInputBar(onSendMessage: (String) -> Unit) {
+fun ChatInputBar(
+    onSendMessage: (String) -> Unit,
+    isLoading: Boolean // 新增参数
+) {
     var text by remember { mutableStateOf("") }
 
     Row(
@@ -169,10 +176,13 @@ fun ChatInputBar(onSendMessage: (String) -> Unit) {
             placeholder = { Text("与 Memoria 对话...") }
         )
         Spacer(modifier = Modifier.width(8.dp))
-        Button(onClick = {
-            onSendMessage(text)
-            text = ""
-        }) {
+        Button(
+            onClick = {
+                onSendMessage(text)
+                text = ""
+            },
+            enabled = !isLoading && text.isNotBlank() // 当 isLoading 为 true 或文本为空时禁用按钮
+        ) {
             Text("发送")
         }
     }

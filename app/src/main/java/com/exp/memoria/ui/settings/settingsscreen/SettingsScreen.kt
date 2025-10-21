@@ -16,13 +16,7 @@ import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -417,7 +411,8 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
                             items(availableModels) { model ->
                                 // 仅显示支持 generateContent 方法的模型
                                 if (model.supportedGenerationMethods.contains("generateContent")) {
-                                    Column(modifier = Modifier
+                                    Column(
+                                        modifier = Modifier
                                         .fillMaxWidth()
                                         .clickable {
                                             viewModel.onChatModelChange(model.name.removePrefix("models/")) // 移除 "models/" 前缀
@@ -427,8 +422,14 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
                                         .padding(vertical = 8.dp)
                                     ) {
                                         Text(text = model.displayName, style = MaterialTheme.typography.titleMedium)
-                                        Text(text = "输入Token限制: ${model.inputTokenLimit}", style = MaterialTheme.typography.bodySmall)
-                                        Text(text = "输出Token限制: ${model.outputTokenLimit}", style = MaterialTheme.typography.bodySmall)
+                                        Text(
+                                            text = "输入Token限制: ${model.inputTokenLimit}",
+                                            style = MaterialTheme.typography.bodySmall
+                                        )
+                                        Text(
+                                            text = "输出Token限制: ${model.outputTokenLimit}",
+                                            style = MaterialTheme.typography.bodySmall
+                                        )
                                         Spacer(modifier = Modifier.height(4.dp))
                                     }
                                 }
@@ -443,7 +444,10 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
                                     }
                                 }
                                 if (isLoadingModels) {
-                                    Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Column(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalAlignment = Alignment.CenterHorizontally
+                                    ) {
                                         Log.d("SettingsScreen", "正在加载更多模型指示器。")
                                         CircularProgressIndicator(modifier = Modifier.padding(16.dp))
                                     }

@@ -1,5 +1,6 @@
 package com.exp.memoria.data.remote.dto
 
+import android.annotation.SuppressLint
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement // 添加这行导入
 
@@ -15,6 +16,7 @@ import kotlinx.serialization.json.JsonElement // 添加这行导入
  * -  由`LlmRepository`在调用`getChatResponse`或`getSummary`时创建实例。
  * -  作为`LlmApiService`中`getChatResponse`和`getSummary`方法的`@Body`参数类型。
  */
+@SuppressLint("UnsafeOptInUsageError")
 @Serializable
 data class LlmRequest(
     /** 对话内容列表，每个元素都是一个带有角色的内容块。 */
@@ -37,6 +39,7 @@ data class LlmRequest(
  * 用于向模型提供高级别的、持久性的指令，以指导其在整个对话过程中的行为、风格和角色。
  * 它的结构与 `Content` 类似，包含一个 `Part` 列表。
  */
+@SuppressLint("UnsafeOptInUsageError")
 @Serializable
 data class SystemInstruction(
     val parts: List<Part>
@@ -49,6 +52,7 @@ data class SystemInstruction(
  * 这是实现 Function Calling 功能的关键部分。
  * 目前是一个占位符，为将来的功能扩展做准备。
  */
+@SuppressLint("UnsafeOptInUsageError")
 @Serializable
 data class Tool(
     val placeholder: String? = null // 尚未实现
@@ -60,6 +64,7 @@ data class Tool(
  * 用于配置模型如何使用其可用的工具。
  * 目前是一个占位符，为将来的功能扩展做准备。
  */
+@SuppressLint("UnsafeOptInUsageError")
 @Serializable
 data class ToolConfig(
     val placeholder: String? = null // 尚未实现
@@ -70,6 +75,7 @@ data class ToolConfig(
  *
  * 用于配置 API 的安全过滤器，可以调整对不同类别（如骚扰、仇恨言论等）内容的屏蔽阈值。
  */
+@SuppressLint("UnsafeOptInUsageError")
 @Serializable
 data class SafetySetting(
     val category: String,
@@ -82,6 +88,7 @@ data class SafetySetting(
  * 用于控制模型生成响应的参数，例如温度 (temperature)、Top-P、Top-K、最大输出长度等。
  * 可以在这里添加 responseMimeType 和 responseSchema。
  */
+@SuppressLint("UnsafeOptInUsageError")
 @Serializable
 data class GenerationConfig(
     // 1. 随机性控制 (Randomness Control)

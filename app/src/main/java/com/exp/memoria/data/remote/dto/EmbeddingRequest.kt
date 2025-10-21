@@ -1,5 +1,6 @@
 package com.exp.memoria.data.remote.dto
 
+import android.annotation.SuppressLint
 import kotlinx.serialization.Serializable
 
 /**
@@ -13,6 +14,7 @@ import kotlinx.serialization.Serializable
  * -  由`LlmRepository`在调用`getEmbedding`时创建实例。
  * -  作为`LlmApiService`中`getEmbedding`方法的`@Body`参数类型。
  */
+@SuppressLint("UnsafeOptInUsageError")
 @Serializable
 data class EmbeddingRequest(
     /** 需要被向量化的内容。 */

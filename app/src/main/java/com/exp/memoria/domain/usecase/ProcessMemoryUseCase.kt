@@ -53,7 +53,10 @@ class ProcessMemoryUseCase @Inject constructor(
             dialogue = "User: ${userMemory.text}\nAI: ${modelMemory.text}"
         } else {
             // 如果找不到匹配的用户查询，记录警告并仅使用模型回复
-            Log.w("ProcessMemoryUseCase", "Could not find a matching user query for memory ID $memoryId. Summarizing AI response only.")
+            Log.w(
+                "ProcessMemoryUseCase",
+                "Could not find a matching user query for memory ID $memoryId. Summarizing AI response only."
+            )
             dialogue = "AI: ${modelMemory.text}"
         }
 

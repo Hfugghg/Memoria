@@ -489,11 +489,13 @@ class SettingsViewModel @Inject constructor(
                             put("format", prop.stringFormat.name.lowercase())
                         }
                     }
+
                     JsonSchemaPropertyType.NUMBER -> {
                         // 使用 put(key, Double) 的重载
                         prop.numberMinimum?.let { put("minimum", it) }
                         prop.numberMaximum?.let { put("maximum", it) }
                     }
+
                     else -> {
                         // 对于 OBJECT 和 ARRAY 简化处理，暂时不添加嵌套属性
                     }
@@ -541,7 +543,12 @@ class SettingsViewModel @Inject constructor(
                     name = name,
                     type = type,
                     description = propObj["description"]?.jsonPrimitive?.content ?: "",
-                    stringFormat = StringFormat.entries.find { it.name.equals(propObj["format"]?.jsonPrimitive?.content, ignoreCase = true) } ?: StringFormat.NONE,
+                    stringFormat = StringFormat.entries.find {
+                        it.name.equals(
+                            propObj["format"]?.jsonPrimitive?.content,
+                            ignoreCase = true
+                        )
+                    } ?: StringFormat.NONE,
                     numberMinimum = propObj["minimum"]?.jsonPrimitive?.doubleOrNull,
                     numberMaximum = propObj["maximum"]?.jsonPrimitive?.doubleOrNull
                 )

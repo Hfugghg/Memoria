@@ -1,5 +1,6 @@
 package com.exp.memoria.data.remote.dto
 
+import android.annotation.SuppressLint
 import kotlinx.serialization.Serializable
 
 /**
@@ -9,6 +10,7 @@ import kotlinx.serialization.Serializable
  *
  * @property embedding 包含了实际向量化结果的顶层对象。
  */
+@SuppressLint("UnsafeOptInUsageError")
 @Serializable
 data class EmbeddingResponse(
     val embedding: Embedding

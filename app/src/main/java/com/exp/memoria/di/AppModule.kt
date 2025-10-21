@@ -6,14 +6,11 @@ import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.preferencesDataStoreFile
 import com.exp.memoria.data.local.dao.CondensedMemoryDao
+import com.exp.memoria.data.local.dao.ConversationHeaderDao
 import com.exp.memoria.data.local.dao.RawMemoryDao
-import com.exp.memoria.data.local.dao.ConversationHeaderDao // 导入 ConversationHeaderDao
 import com.exp.memoria.data.remote.api.LlmApiService
-import com.exp.memoria.data.repository.LlmRepository
-import com.exp.memoria.data.repository.MemoryRepository
-import com.exp.memoria.data.repository.MemoryRepositoryImpl
-import com.exp.memoria.data.repository.SettingsRepository
-import com.exp.memoria.data.repository.SettingsRepositoryImpl
+import com.exp.memoria.data.repository.*
+import com.exp.memoria.data.repository.llmrepository.*
 import com.exp.memoria.domain.usecase.GetChatResponseUseCase
 import com.exp.memoria.domain.usecase.ProcessMemoryUseCase
 import dagger.Module
@@ -41,6 +38,45 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 object AppModule {
 
+    // 1. 提供 LlmRepositoryHelpers 实例 (如果它被 @Inject 构造函数注解，则此步可选，
+    //    但为了清晰和保证单例，建议保留)
+    @Provides
+    @Singleton
+    fun provideLlmRepositoryHelpers(settingsRepository: SettingsRepository): LlmRepositoryHelpers {
+        return LlmRepositoryHelpers(settingsRepository)
+    }
+
+    // 2. 提供 ChatService 实例 (委托给 ChatServiceImpl)
+    @Provides
+    @Singleton
+    fun provideChatService(
+        llmApiService: LlmApiService,
+        helpers: LlmRepositoryHelpers // 依赖于 Helpers
+    ): ChatService {
+        return ChatServiceImpl(llmApiService, helpers)
+    }
+
+    // 3. 提供 UtilityService 实例 (委托给 UtilityServiceImpl)
+    @Provides
+    @Singleton
+    fun provideUtilityService(
+        llmApiService: LlmApiService,
+        helpers: LlmRepositoryHelpers // 依赖于 Helpers
+    ): UtilityService {
+        return UtilityServiceImpl(llmApiService, helpers)
+    }
+
+    // 4. 修改后的 LlmRepository 提供函数
+    @Provides
+    @Singleton
+    fun provideLlmRepository(
+        chatService: ChatService, // 注入 ChatService
+        utilityService: UtilityService // 注入 UtilityService
+    ): LlmRepository {
+        // LlmRepository 的构造函数现在接受 ChatService 和 UtilityService
+        return LlmRepository(chatService, utilityService)
+    }
+
     @Provides
     @Singleton
     fun provideDataStore(@ApplicationContext context: Context): DataStore<Preferences> {
@@ -66,21 +102,18 @@ object AppModule {
     }
 
     @Provides
-    @Singleton
-    fun provideLlmRepository(
-        llmApiService: LlmApiService,
-        settingsRepository: SettingsRepository
-    ): LlmRepository {
-        return LlmRepository(llmApiService, settingsRepository)
-    }
-
-    @Provides
-    fun provideGetChatResponseUseCase(memoryRepository: MemoryRepository, llmRepository: LlmRepository): GetChatResponseUseCase {
+    fun provideGetChatResponseUseCase(
+        memoryRepository: MemoryRepository,
+        llmRepository: LlmRepository
+    ): GetChatResponseUseCase {
         return GetChatResponseUseCase(memoryRepository, llmRepository)
     }
 
     @Provides
-    fun provideProcessMemoryUseCase(memoryRepository: MemoryRepository, llmRepository: LlmRepository): ProcessMemoryUseCase {
+    fun provideProcessMemoryUseCase(
+        memoryRepository: MemoryRepository,
+        llmRepository: LlmRepository
+    ): ProcessMemoryUseCase {
         return ProcessMemoryUseCase(memoryRepository, llmRepository)
     }
 }
