@@ -103,36 +103,8 @@ class ChatServiceImpl @Inject constructor(
                                     if (jsonString.isBlank()) {
                                         continue
                                     }
-
-                                    try {
-                                        val llmResponse = helpers.jsonEncoder.decodeFromString<LlmResponse>(jsonString)
-                                        val text = llmResponse.candidates
-                                            ?.firstOrNull()
-                                            ?.content
-                                            ?.parts
-                                            ?.firstOrNull()
-                                            ?.text
-
-                                        if (!text.isNullOrEmpty()) {
-                                            Log.d("ChatServiceImpl", "收到流式文本片段: $text")
-                                            emit(ChatChunkResult.Success(text))
-                                        } else {
-                                            // [修正] 移除了 promptFeedback 检查。
-                                            // 如果响应块被解析但文本为空，这可能是一个安全阻止。
-                                            // 我们发出一个错误，让 ViewModel 停止并显示。
-                                            if (llmResponse.candidates?.isNotEmpty() == true) {
-                                                val errorMsg = "响应被阻止或为空。"
-                                                Log.w("ChatServiceImpl", "流式响应块文本为空，可能被阻止。")
-                                                emit(ChatChunkResult.Error(errorMsg))
-                                            } else {
-                                                // 可能是其他类型的 SSE 消息，忽略。
-                                                Log.d("ChatServiceImpl", "流式响应无有效候选项。")
-                                            }
-                                        }
-                                    } catch (e: Exception) {
-                                        Log.e("ChatServiceImpl", "解析流式响应 JSON 片段失败: $jsonString", e)
-                                        emit(ChatChunkResult.Error("解析响应数据失败: ${e.localizedMessage}"))
-                                    }
+                                    // 解析并处理数据块，如果结果非空则发出
+                                    parseAndProcessStreamData(jsonString)?.let { emit(it) }
                                 }
                             }
                         } finally {
@@ -162,18 +134,8 @@ class ChatServiceImpl @Inject constructor(
             try {
                 val response = llmApiService.getChatResponse(modelId, apiKey, request)
                 Log.d("ChatServiceImpl", "LLM 聊天响应: $response")
+                emit(processLlmResponse(response))
 
-                val text = response.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text
-
-                if (!text.isNullOrEmpty()) {
-                    emit(ChatChunkResult.Success(text))
-                } else {
-                    // [修正] 移除了 promptFeedback 检查。
-                    // 响应成功，但文本为空。这可能是被阻止了。
-                    val errorMsg = "抱歉，无法获取回复（响应为空或被阻止）。"
-                    Log.w("ChatServiceImpl", "非流式响应文本为空: $errorMsg")
-                    emit(ChatChunkResult.Error(errorMsg))
-                }
             } catch (_: CancellationException) {
                 Log.d(
                     "ChatServiceImpl",
@@ -183,6 +145,62 @@ class ChatServiceImpl @Inject constructor(
                 Log.e("ChatServiceImpl", "获取 LLM 聊天响应失败", e)
                 emit(ChatChunkResult.Error("抱歉，无法获取回复。错误：${e.localizedMessage}"))
             }
+        }
+    }
+
+    /**
+     * 处理来自 LLM 的非流式响应。
+     *
+     * @param llmResponse 由 Retrofit 解析的 LlmResponse 对象。
+     * @return ChatChunkResult.Success 包含提取的文本，或 ChatChunkResult.Error 如果文本为空或被阻止。
+     */
+    private fun processLlmResponse(llmResponse: LlmResponse): ChatChunkResult {
+        val text = llmResponse.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text
+        val totalTokenCount = llmResponse.usageMetadata?.totalTokenCount
+
+        return if (!text.isNullOrEmpty()) {
+            ChatChunkResult.Success(text, totalTokenCount)
+        } else {
+            val errorMsg = "抱歉，无法获取回复（响应为空或被阻止）。"
+            Log.w("ChatServiceImpl", "非流式响应文本为空: $errorMsg")
+            ChatChunkResult.Error(errorMsg)
+        }
+    }
+
+    /**
+     * 解析并处理单个流式响应数据块 (JSON)。
+     *
+     * @param jsonString 从流中读取的 JSON 字符串。
+     * @return 如果数据块有效且包含文本或错误，则返回 ChatChunkResult；如果数据块应被忽略，则返回 null。
+     */
+    private fun parseAndProcessStreamData(jsonString: String): ChatChunkResult? {
+        return try {
+            val llmResponse = helpers.jsonEncoder.decodeFromString<LlmResponse>(jsonString)
+            val text = llmResponse.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text
+            val totalTokenCount = llmResponse.usageMetadata?.totalTokenCount
+
+            if (!text.isNullOrEmpty()) {
+                Log.d("ChatServiceImpl", "收到流式文本片段: $text")
+                ChatChunkResult.Success(text, totalTokenCount)
+            } else if (totalTokenCount != null) {
+                // 这个数据块可能只包含元数据（例如，在流的末尾）。
+                // 发出一个带有空文本的 Success 事件，以便 ViewModel 可以更新令牌计数。
+                Log.d("ChatServiceImpl", "收到流式元数据，总令牌数: $totalTokenCount")
+                ChatChunkResult.Success("", totalTokenCount)
+            } else {
+                if (llmResponse.candidates?.isNotEmpty() == true) {
+                    val errorMsg = "响应被阻止或为空。"
+                    Log.w("ChatServiceImpl", "流式响应块文本为空，可能被阻止。")
+                    ChatChunkResult.Error(errorMsg)
+                } else {
+                    // 可能是其他类型的 SSE 消息（例如，只有 safetyRatings），应该忽略。
+                    Log.d("ChatServiceImpl", "流式响应无有效候选项或文本。")
+                    null
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("ChatServiceImpl", "解析流式响应 JSON 片段失败: $jsonString", e)
+            ChatChunkResult.Error("解析响应数据失败: ${e.localizedMessage}")
         }
     }
 }

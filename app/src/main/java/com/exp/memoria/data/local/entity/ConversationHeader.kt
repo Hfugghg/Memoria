@@ -11,5 +11,6 @@ data class ConversationHeader(
     val creationTimestamp: Long,
     var lastUpdateTimestamp: Long,
     val responseSchema: String? = null, // 新增的 responseSchema 字段
-    val systemInstruction: String? = null // 新增的 systemInstruction 字段
+    val systemInstruction: String? = null, // 新增的 systemInstruction 字段
+    val totalTokenCount: Int = 0 // 新增的 totalTokenCount 字段，默认为 0
 )

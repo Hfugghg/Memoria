@@ -61,12 +61,23 @@ class ChatViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(ChatState())
     val uiState = _uiState.asStateFlow()
 
+    // 用于存储和暴露总令牌数
+    private val _totalTokenCount = MutableStateFlow<Int?>(null)
+    val totalTokenCount = _totalTokenCount.asStateFlow()
+
     private var currentPage = 0
     private val pageSize = 50
 
     init {
         Log.d("ChatViewModel", "使用 conversationId 初始化: $conversationId")
         loadMoreMessages()
+        // 加载持久化的令牌数
+        viewModelScope.launch {
+            val header = memoryRepository.getConversationHeaderById(conversationId)
+            header?.let {
+                _totalTokenCount.value = it.totalTokenCount
+            }
+        }
     }
 
     fun loadMoreMessages() {
@@ -116,6 +127,9 @@ class ChatViewModel @Inject constructor(
                 isLoading = true
             )
         }
+
+        // 重置令牌计数，因为这是一个新的请求
+        _totalTokenCount.value = null
 
         viewModelScope.launch {
             val isStreaming = settingsRepository.settingsFlow.first().isStreamingEnabled
@@ -167,6 +181,14 @@ class ChatViewModel @Inject constructor(
                         val chunk = result.text
                         // [修改]：只累积成功的文本
                         successfulTextBuffer.append(chunk)
+
+                        // 更新并保存总令牌数
+                        result.totalTokenCount?.let { count ->
+                            _totalTokenCount.value = count
+                            viewModelScope.launch {
+                                memoryRepository.updateTotalTokenCount(conversationId, count)
+                            }
+                        }
 
                         // 模拟打字效果，逐字更新
                         for (char in chunk) {
@@ -281,6 +303,12 @@ class ChatViewModel @Inject constructor(
             when (result) {
                 is ChatChunkResult.Success -> {
                     val response = result.text
+                    // 更新并保存总令牌数
+                    result.totalTokenCount?.let { count ->
+                        _totalTokenCount.value = count
+                        memoryRepository.updateTotalTokenCount(conversationId, count)
+                    }
+
                     if (response.isNotEmpty()) {
                         Log.d("ChatViewModel", "nonStreamResponse: 为 conversationId: $conversationId 保存新内存")
                         val memoryId = memoryRepository.saveNewMemory(query, response, conversationId)

@@ -8,7 +8,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.*
+import androidx.compose.material3.* // 导入所有 Material3 组件
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -46,6 +46,7 @@ fun ChatScreen(
     viewModel: ChatViewModel = hiltViewModel(key = conversationId) // 将 conversationId 作为 key
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val totalTokenCount by viewModel.totalTokenCount.collectAsState() // 收集 totalTokenCount
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
 
@@ -90,7 +91,8 @@ fun ChatScreen(
         bottomBar = {
             ChatInputBar(
                 onSendMessage = { viewModel.sendMessage(it) },
-                isLoading = uiState.isLoading // 传递 isLoading 状态
+                isLoading = uiState.isLoading,
+                tokensCount = totalTokenCount // 传递 totalTokenCount
             )
         }
     ) { paddingValues ->
@@ -154,12 +156,14 @@ fun MessageBubble(message: ChatMessage) {
  *
  * @param onSendMessage 当用户点击发送按钮时触发的回调，参数为输入的文本内容。
  * @param isLoading 指示LLM是否正在响应，用于禁用发送按钮。
+ * @param tokensCount 当前上下文的Token数量。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatInputBar(
     onSendMessage: (String) -> Unit,
-    isLoading: Boolean // 新增参数
+    isLoading: Boolean,
+    tokensCount: Int? // 修改参数类型为 Int?
 ) {
     var text by remember { mutableStateOf("") }
 
@@ -173,7 +177,18 @@ fun ChatInputBar(
             value = text,
             onValueChange = { text = it },
             modifier = Modifier.weight(1f),
-            placeholder = { Text("与 Memoria 对话...") }
+            placeholder = { Text("与 Memoria 对话...") },
+            trailingIcon = {
+                // 只有当输入框为空且 tokensCount 不为 null 时才显示Tokens计数
+                if (text.isBlank() && tokensCount != null) {
+                    Text(
+                        text = "Tokens: $tokensCount",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(end = 8.dp) // 调整内边距以美观
+                    )
+                }
+            }
         )
         Spacer(modifier = Modifier.width(8.dp))
         Button(
