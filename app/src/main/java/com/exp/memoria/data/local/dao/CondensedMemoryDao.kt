@@ -54,6 +54,9 @@ interface CondensedMemoryDao {
 
     @Query("DELETE FROM condensed_memory WHERE conversationId = :conversationId")
     suspend fun deleteByConversationId(conversationId: String)
+
+    @Query("DELETE FROM condensed_memory WHERE conversationId = :conversationId AND raw_memory_id >= :id")
+    suspend fun deleteFrom(conversationId: String, id: Long)
 }
 
 data class MemoryVector(

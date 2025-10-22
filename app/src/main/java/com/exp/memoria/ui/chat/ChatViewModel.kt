@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.util.*
 import javax.inject.Inject
+import kotlin.coroutines.cancellation.CancellationException
 
 /**
  * [ChatViewModel]
@@ -159,25 +160,40 @@ class ChatViewModel @Inject constructor(
 
 
     fun regenerateResponse(aiMessageId: UUID) {
-        // TODO: 重说功能目前只是重新请求，并未覆盖数据库中旧的AI回复。后续应实现替换逻辑。
         viewModelScope.launch {
             val messages = _uiState.value.messages
             val aiMessageIndex = messages.indexOfFirst { it.id == aiMessageId }
 
             // 确保我们找到了AI消息，并且它不是列表中的第一条消息
             if (aiMessageIndex > 0) {
+                val aiMessage = messages[aiMessageIndex] // 获取AI消息本身
                 val userMessage = messages[aiMessageIndex - 1]
-                // 确保前一条消息是用户的
-                if (userMessage.isFromUser) {
-                    // 从UI中移除旧的AI回复。注意：这没有从数据库中删除它。
+
+                // 确保AI消息有memoryId且前一条是用户消息
+                if (aiMessage.memoryId != null && userMessage.isFromUser) {
+                    // 1. 从数据库中删除AI消息及其之后的所有消息
+                    Log.d("ChatViewModel", "regenerateResponse: 准备从数据库删除 memoryId >= ${aiMessage.memoryId} 的消息")
+                    memoryRepository.deleteFrom(conversationId, aiMessage.memoryId)
+                    Log.d("ChatViewModel", "regenerateResponse: 数据库删除完成")
+
+                    // 2. 更新UI状态，移除AI消息及其之后的所有消息
                     _uiState.update { currentState ->
+                        val messagesAfterDeletion = currentState.messages.take(aiMessageIndex)
+                        Log.d("ChatViewModel", "regenerateResponse: UI状态更新，保留 ${messagesAfterDeletion.size} 条消息")
                         currentState.copy(
-                            messages = currentState.messages.filterNot { it.id == aiMessageId }
+                            messages = messagesAfterDeletion,
+                            isLoading = true // 设置加载状态为true，因为即将重新生成AI回复
                         )
                     }
-                    // 使用之前的用户查询重新发送消息
-                    sendMessage(userMessage.text)
+
+                    // 3. 使用之前的用户查询重新发送消息 (queryForLlm = null 表示重说，userQueryForSaving 传入原始用户消息)
+                    Log.d("ChatViewModel", "regenerateResponse: 重新发送用户消息: ${userMessage.text}")
+                    generateAiResponse(queryForLlm = null, userQueryForSaving = userMessage.text)
+                } else {
+                    Log.w("ChatViewModel", "regenerateResponse: 无法重说。AI消息没有memoryId或前一条不是用户消息。 memoryId is ${aiMessage.memoryId}, isFromUser is ${userMessage.isFromUser}")
                 }
+            } else {
+                Log.w("ChatViewModel", "regenerateResponse: 无法重说。未找到AI消息或它是第一条消息。")
             }
         }
     }
@@ -204,32 +220,38 @@ class ChatViewModel @Inject constructor(
         _totalTokenCount.value = null
 
         viewModelScope.launch {
-            val isStreaming = settingsRepository.settingsFlow.first().isStreamingEnabled
-
-            try {
-                if (isStreaming) {
-                    streamResponse(query)
-                } else {
-                    nonStreamResponse(query)
-                }
-            } catch (e: Exception) {
-                _uiState.update { currentState ->
-                    currentState.copy(
-                        messages = currentState.messages + ChatMessage(
-                            id = UUID.randomUUID(),
-                            text = "出错了，请重试",
-                            isFromUser = false
-                        ),
-                        isLoading = false
-                    )
-                }
-                e.printStackTrace()
-            }
+            // 发送新消息 (queryForLlm = query 表示新消息，userQueryForSaving 传入当前用户消息)
+            generateAiResponse(queryForLlm = query, userQueryForSaving = query)
         }
     }
 
-    private suspend fun streamResponse(query: String) {
-        Log.d("ChatViewModel", "streamResponse: 开始处理查询: $query")
+    private suspend fun generateAiResponse(queryForLlm: String?, userQueryForSaving: String) {
+        _totalTokenCount.value = null // 重置令牌计数，因为这是一个新的请求
+        val isStreaming = settingsRepository.settingsFlow.first().isStreamingEnabled
+
+        try {
+            if (isStreaming) {
+                streamResponse(queryForLlm, userQueryForSaving)
+            } else {
+                nonStreamResponse(queryForLlm, userQueryForSaving)
+            }
+        } catch (e: Exception) {
+            _uiState.update { currentState ->
+                currentState.copy(
+                    messages = currentState.messages + ChatMessage(
+                        id = UUID.randomUUID(),
+                        text = "出错了，请重试",
+                        isFromUser = false
+                    ),
+                    isLoading = false
+                )
+            }
+            e.printStackTrace()
+        }
+    }
+
+    private suspend fun streamResponse(queryForLlm: String?, userQueryForSaving: String) {
+        Log.d("ChatViewModel", "streamResponse: 开始处理查询: $queryForLlm (用于LLM), 用户查询: $userQueryForSaving (用于保存)")
 
         // 1. 为AI响应添加一个带唯一ID的占位符。
         val aiMessageId = UUID.randomUUID()
@@ -240,21 +262,17 @@ class ChatViewModel @Inject constructor(
         }
         Log.d("ChatViewModel", "streamResponse: 已为AI响应添加占位符。")
 
-        // [修改]：用于累积成功文本和标记错误
         val successfulTextBuffer = StringBuilder()
         var hasErrorOccurred = false
         var uiErrorMessage = "" // 用于在UI上显示的错误
 
         try {
-            // 2. [修改]：收集 ChatChunkResult
-            getChatResponseUseCase.invoke(query, conversationId, true).collect { result ->
+            getChatResponseUseCase.invoke(queryForLlm, conversationId, true).collect { result ->
                 when (result) {
                     is ChatChunkResult.Success -> {
                         val chunk = result.text
-                        // [修改]：只累积成功的文本
                         successfulTextBuffer.append(chunk)
 
-                        // 更新并保存总令牌数
                         result.totalTokenCount?.let { count ->
                             _totalTokenCount.value = count
                             viewModelScope.launch {
@@ -262,23 +280,18 @@ class ChatViewModel @Inject constructor(
                             }
                         }
 
-                        // 模拟打字效果，逐字更新
                         for (char in chunk) {
                             _uiState.update { currentState ->
                                 val updatedMessages = currentState.messages.toMutableList()
                                 val messageIndex = updatedMessages.indexOfFirst { it.id == aiMessageId }
 
-                                // 仅当找到我们的AI响应占位符时才更新
                                 if (messageIndex != -1) {
                                     val currentMessage = updatedMessages[messageIndex]
-                                    // [修改]：确保我们只在当前累积的文本上附加
-                                    // 如果之前有错误，UI上会显示错误，但我们这里用 buffer 的内容（虽然这里只追加char）
-                                    // 更好的方式是直接使用 buffer 的内容更新UI
                                     val updatedMessage = currentMessage.copy(text = currentMessage.text + char)
                                     updatedMessages[messageIndex] = updatedMessage
                                     currentState.copy(messages = updatedMessages)
                                 } else {
-                                    currentState // 如果发生意外情况，则不更新
+                                    currentState
                                 }
                             }
                             delay(15) // 调整此延迟以控制打字速度，15ms是一个比较平滑的值
@@ -286,7 +299,6 @@ class ChatViewModel @Inject constructor(
                     }
 
                     is ChatChunkResult.Error -> {
-                        // [修改]：发生错误，设置标志并更新UI
                         hasErrorOccurred = true
                         uiErrorMessage = result.message
                         Log.w("ChatViewModel", "streamResponse: 收到错误: $uiErrorMessage")
@@ -294,7 +306,6 @@ class ChatViewModel @Inject constructor(
                             val updatedMessages = currentState.messages.toMutableList()
                             val messageIndex = updatedMessages.indexOfFirst { it.id == aiMessageId }
                             if (messageIndex != -1) {
-                                // [修改]：在UI上显示错误。这 *不会* 被保存
                                 updatedMessages[messageIndex] =
                                     updatedMessages[messageIndex].copy(text = uiErrorMessage)
                                 currentState.copy(messages = updatedMessages)
@@ -308,8 +319,8 @@ class ChatViewModel @Inject constructor(
             Log.d("ChatViewModel", "streamResponse: 流收集完成。")
 
         } catch (e: Exception) {
+            if (e is CancellationException) throw e
             Log.e("ChatViewModel", "streamResponse: 流收集过程中发生错误", e)
-            // [修改]：捕获异常也算作错误
             hasErrorOccurred = true
             uiErrorMessage = "流式响应出错: ${e.message}"
             _uiState.update { currentState ->
@@ -319,7 +330,6 @@ class ChatViewModel @Inject constructor(
                     updatedMessages[messageIndex] = updatedMessages[messageIndex].copy(text = uiErrorMessage)
                     currentState.copy(messages = updatedMessages)
                 } else {
-                    // 如果占位符消息由于某种原因不存在，则添加一条新的错误消息
                     currentState.copy(
                         messages = currentState.messages + ChatMessage(
                             id = UUID.randomUUID(),
@@ -330,68 +340,91 @@ class ChatViewModel @Inject constructor(
                 }
             }
         } finally {
-            // 3. 流完成后（或失败），更新加载状态。
-            _uiState.update { it.copy(isLoading = false) }
-            Log.d("ChatViewModel", "streamResponse: 设置 isLoading 为 false。")
+            val finalResponseText = successfulTextBuffer.toString()
+            val memoryId: Long
 
-            // 4. [修改]：将最终的完整响应保存到数据库。
-            //    读取 successfulTextBuffer 而不是 UI state
-            if (!hasErrorOccurred && successfulTextBuffer.isNotEmpty()) {
-                val finalResponseText = successfulTextBuffer.toString()
+            if (!hasErrorOccurred && finalResponseText.isNotEmpty()) {
                 Log.d("ChatViewModel", "streamResponse: 正在保存最终响应（${finalResponseText.length} 字符）到记忆中。")
-                val memoryId = memoryRepository.saveNewMemory(query, finalResponseText, conversationId)
+                if (queryForLlm != null) { // 新消息，保存用户查询和AI响应
+                    memoryId = memoryRepository.saveNewMemory(userQueryForSaving, finalResponseText, conversationId)
+                } else { // 重说，只保存AI响应
+                    memoryId = memoryRepository.saveOnlyAiResponse(userQueryForSaving, finalResponseText, conversationId)
+                }
                 Log.d("ChatViewModel", "streamResponse: 新记忆已保存。 ID: $memoryId")
-
-                // 安排后台处理。
-                val workRequest = OneTimeWorkRequestBuilder<MemoryProcessingWorker>()
-                    .setInputData(workDataOf(MemoryProcessingWorker.KEY_MEMORY_ID to memoryId))
-                    .build()
-                WorkManager.getInstance(application).enqueue(workRequest)
-                Log.d("ChatViewModel", "streamResponse: WorkManager 任务已入队。")
-            } else if (hasErrorOccurred) {
-                // [修改]：如果发生错误，保存空字符串
-                Log.w("ChatViewModel", "streamResponse: 发生错误，正在保存空响应。错误: $uiErrorMessage")
-                val memoryId = memoryRepository.saveNewMemory(query, "", conversationId)
-                Log.d("ChatViewModel", "streamResponse: 已保存空记忆。 ID: $memoryId")
             } else {
-                // [修改]：如果响应为空，也保存空字符串
-                Log.w("ChatViewModel", "streamResponse: 最终响应为空，保存空响应。")
-                val memoryId = memoryRepository.saveNewMemory(query, "", conversationId)
+                Log.w("ChatViewModel", "streamResponse: 发生错误或响应为空，保存空响应。错误: $uiErrorMessage")
+                if (queryForLlm != null) { // 新消息，保存用户查询和空AI响应
+                    memoryId = memoryRepository.saveNewMemory(userQueryForSaving, "", conversationId)
+                } else { // 重说，只保存空AI响应
+                    memoryId = memoryRepository.saveOnlyAiResponse(userQueryForSaving, "", conversationId)
+                }
                 Log.d("ChatViewModel", "streamResponse: 已保存空记忆。 ID: $memoryId")
             }
+
+            // !!! 核心修复点：更新UI状态中的AI消息，为其填充正确的memoryId和稳定的id !!!
+            _uiState.update { currentState ->
+                val updatedMessages = currentState.messages.map { message ->
+                    if (message.id == aiMessageId) {
+                        Log.d("ChatViewModel", "streamResponse.finally: Found and updating placeholder message. Old ID: ${message.id}, New Stable ID: ${UUID.nameUUIDFromBytes(memoryId.toString().toByteArray())}, New memoryId: $memoryId")
+                        // 更新占位符消息，为其赋予稳定的ID和数据库ID
+                        message.copy(
+                            id = UUID.nameUUIDFromBytes(memoryId.toString().toByteArray()),
+                            memoryId = memoryId
+                        )
+                    } else {
+                        message
+                    }
+                }
+                // 同时更新加载状态
+                currentState.copy(
+                    messages = updatedMessages,
+                    isLoading = false
+                )
+            }
+            Log.d("ChatViewModel", "streamResponse: UI state updated with final memoryId and stable UUID.")
+
+            // 安排后台处理。
+            val workRequest = OneTimeWorkRequestBuilder<MemoryProcessingWorker>()
+                .setInputData(workDataOf(MemoryProcessingWorker.KEY_MEMORY_ID to memoryId))
+                .build()
+            WorkManager.getInstance(application).enqueue(workRequest)
+            Log.d("ChatViewModel", "streamResponse: WorkManager 任务已入队。")
         }
     }
 
-    private suspend fun nonStreamResponse(query: String) {
-        Log.d("ChatViewModel", "nonStreamResponse: 开始处理查询: $query")
+    private suspend fun nonStreamResponse(queryForLlm: String?, userQueryForSaving: String) {
+        Log.d("ChatViewModel", "nonStreamResponse: 开始处理查询: $queryForLlm (用于LLM), 用户查询: $userQueryForSaving (用于保存)")
         try {
-            // 使用 .first() 来获取非流式响应的单个结果
-            Log.d("ChatViewModel", "nonStreamResponse: 调用 getChatResponseUseCase (非流式模式)...")
-            // [修改]：获取 ChatChunkResult
-            val result = getChatResponseUseCase.invoke(query, conversationId, false).first()
+            val result = getChatResponseUseCase.invoke(queryForLlm, conversationId, false).first()
             Log.d("ChatViewModel", "nonStreamResponse: 获取到的结果: $result")
 
-            // [修改]：使用 when 处理结果
             when (result) {
                 is ChatChunkResult.Success -> {
                     val response = result.text
-                    // 更新并保存总令牌数
                     result.totalTokenCount?.let { count ->
                         _totalTokenCount.value = count
-                        memoryRepository.updateTotalTokenCount(conversationId, count)
+                        viewModelScope.launch {
+                            memoryRepository.updateTotalTokenCount(conversationId, count)
+                        }
                     }
 
+                    val memoryId: Long
                     if (response.isNotEmpty()) {
                         Log.d("ChatViewModel", "nonStreamResponse: 为 conversationId: $conversationId 保存新内存")
-                        val memoryId = memoryRepository.saveNewMemory(query, response, conversationId)
+                        if (queryForLlm != null) { // 新消息，保存用户查询和AI响应
+                            memoryId = memoryRepository.saveNewMemory(userQueryForSaving, response, conversationId)
+                        } else { // 重说，只保存AI响应
+                            memoryId = memoryRepository.saveOnlyAiResponse(userQueryForSaving, response, conversationId)
+                        }
                         Log.d("ChatViewModel", "nonStreamResponse: 新内存已保存. memoryId: $memoryId")
 
                         _uiState.update { currentState ->
                             currentState.copy(
                                 messages = currentState.messages + ChatMessage(
-                                    id = UUID.randomUUID(),
+                                    id = UUID.nameUUIDFromBytes(memoryId.toString().toByteArray()), // 使用稳定的UUID
                                     text = response,
-                                    isFromUser = false
+                                    isFromUser = false,
+                                    memoryId = memoryId // 填充数据库ID
                                 ),
                                 isLoading = false
                             )
@@ -405,14 +438,19 @@ class ChatViewModel @Inject constructor(
                         Log.d("ChatViewModel", "nonStreamResponse: WorkManager 任务已入队.")
                     } else {
                         Log.w("ChatViewModel", "nonStreamResponse: 获取到的响应为空。")
-                        // [修改]：保存空响应
-                        memoryRepository.saveNewMemory(query, "", conversationId)
+                        // 保存空响应
+                        if (queryForLlm != null) { // 新消息，保存用户查询和空AI响应
+                            memoryId = memoryRepository.saveNewMemory(userQueryForSaving, "", conversationId)
+                        } else { // 重说，只保存空AI响应
+                            memoryId = memoryRepository.saveOnlyAiResponse(userQueryForSaving, "", conversationId)
+                        }
                         _uiState.update { currentState ->
                             currentState.copy(
                                 messages = currentState.messages + ChatMessage(
-                                    id = UUID.randomUUID(),
+                                    id = UUID.nameUUIDFromBytes(memoryId.toString().toByteArray()), // 使用稳定的UUID
                                     text = "未能获取到有效回复，请重试。",
-                                    isFromUser = false
+                                    isFromUser = false,
+                                    memoryId = memoryId // 填充数据库ID
                                 ),
                                 isLoading = false
                             )
@@ -423,15 +461,21 @@ class ChatViewModel @Inject constructor(
                 is ChatChunkResult.Error -> {
                     val errorMessage = result.message
                     Log.w("ChatViewModel", "nonStreamResponse: 收到错误: $errorMessage")
-                    // [修改]：保存空响应
-                    memoryRepository.saveNewMemory(query, "", conversationId)
-                    // [修改]：只在UI上显示错误
+                    // 保存空响应
+                    val memoryId: Long
+                    if (queryForLlm != null) { // 新消息，保存用户查询和空AI响应
+                        memoryId = memoryRepository.saveNewMemory(userQueryForSaving, "", conversationId)
+                    } else { // 重说，只保存空AI响应
+                        memoryId = memoryRepository.saveOnlyAiResponse(userQueryForSaving, "", conversationId)
+                    }
+                    // 只在UI上显示错误
                     _uiState.update { currentState ->
                         currentState.copy(
                             messages = currentState.messages + ChatMessage(
-                                id = UUID.randomUUID(),
+                                id = UUID.nameUUIDFromBytes(memoryId.toString().toByteArray()), // 使用稳定的UUID
                                 text = errorMessage,
-                                isFromUser = false
+                                isFromUser = false,
+                                memoryId = memoryId // 填充数据库ID
                             ),
                             isLoading = false
                         )
@@ -440,14 +484,20 @@ class ChatViewModel @Inject constructor(
             }
         } catch (e: Exception) {
             Log.e("ChatViewModel", "nonStreamResponse: 非流式响应过程中发生错误", e) // Log exceptions
-            // [修改]：保存空响应
-            memoryRepository.saveNewMemory(query, "", conversationId)
+            // 保存空响应
+            val memoryId: Long
+            if (queryForLlm != null) { // 新消息，保存用户查询和空AI响应
+                memoryId = memoryRepository.saveNewMemory(userQueryForSaving, "", conversationId)
+            } else { // 重说，只保存空AI响应
+                memoryId = memoryRepository.saveOnlyAiResponse(userQueryForSaving, "", conversationId)
+            }
             _uiState.update { currentState ->
                 currentState.copy(
                     messages = currentState.messages + ChatMessage(
-                        id = UUID.randomUUID(),
+                        id = UUID.nameUUIDFromBytes(memoryId.toString().toByteArray()), // 使用稳定的UUID
                         text = "非流式响应出错: ${e.message}",
-                        isFromUser = false
+                        isFromUser = false,
+                        memoryId = memoryId // 填充数据库ID
                     ),
                     isLoading = false
                 )
