@@ -94,7 +94,8 @@ class ChatViewModel @Inject constructor(
                     // 从数据库的 Long ID 生成一个稳定的 UUID
                     id = UUID.nameUUIDFromBytes(memory.id.toString().toByteArray()),
                     text = memory.text,
-                    isFromUser = memory.sender == "user"
+                    isFromUser = memory.sender == "user",
+                    memoryId = memory.id // 填充数据库ID
                 )
             }
             Log.d("ChatViewModel", "[诊断] 转换后，准备将 ${chatMessages.size} 条新消息添加到UI。")
@@ -113,19 +114,52 @@ class ChatViewModel @Inject constructor(
 
     fun updateMessage(messageId: UUID, newText: String) {
         viewModelScope.launch {
+            var memoryIdToUpdate: Long? = null
+            var originalText: String? = null
+
+            // 1. 更新UI状态并获取要更新的memoryId
             _uiState.update { currentState ->
-                val updatedMessages = currentState.messages.map {
-                    if (it.id == messageId) it.copy(text = newText) else it
+                val updatedMessages = currentState.messages.map { message ->
+                    if (message.id == messageId) {
+                        memoryIdToUpdate = message.memoryId
+                        originalText = message.text
+                        message.copy(text = newText)
+                    } else {
+                        message
+                    }
                 }
-                // 注：此处的修改仅更新UI状态，并未持久化到数据库。
-                // 这是因为从UI层的ChatMessage UUID难以直接映射回数据库的ID。
-                // 一个完整的实现需要修改ChatMessage以包含数据库ID，或实现一个更复杂的查找逻辑。
                 currentState.copy(messages = updatedMessages)
+            }
+
+            // 2. 如果找到了memoryId，则执行数据库更新
+            memoryIdToUpdate?.let { memoryId ->
+                Log.d("ChatViewModel", "准备更新数据库... Memory ID: $memoryId, 新文本: $newText")
+                try {
+                    // 假设 memoryRepository 中有 updateMemoryText 方法
+                    memoryRepository.updateMemoryText(memoryId, newText)
+                    Log.d("ChatViewModel", "数据库更新成功。")
+                } catch (e: Exception) {
+                    Log.e("ChatViewModel", "数据库更新失败。", e)
+                    // 如果数据库更新失败，将UI状态恢复到原始文本
+                    _uiState.update { currentState ->
+                        val restoredMessages = currentState.messages.map { message ->
+                            if (message.id == messageId) {
+                                message.copy(text = originalText ?: newText) // 恢复旧文本
+                            } else {
+                                message
+                            }
+                        }
+                        currentState.copy(messages = restoredMessages)
+                    }
+                    // TODO: 向用户显示一个错误提示
+                }
             }
         }
     }
 
+
     fun regenerateResponse(aiMessageId: UUID) {
+        // TODO: 重说功能目前只是重新请求，并未覆盖数据库中旧的AI回复。后续应实现替换逻辑。
         viewModelScope.launch {
             val messages = _uiState.value.messages
             val aiMessageIndex = messages.indexOfFirst { it.id == aiMessageId }
@@ -135,7 +169,7 @@ class ChatViewModel @Inject constructor(
                 val userMessage = messages[aiMessageIndex - 1]
                 // 确保前一条消息是用户的
                 if (userMessage.isFromUser) {
-                    // 移除旧的AI回复和它之前的用户消息（如果它们是最后两条）
+                    // 从UI中移除旧的AI回复。注意：这没有从数据库中删除它。
                     _uiState.update { currentState ->
                         currentState.copy(
                             messages = currentState.messages.filterNot { it.id == aiMessageId }
@@ -156,6 +190,7 @@ class ChatViewModel @Inject constructor(
             id = UUID.randomUUID(),
             text = query,
             isFromUser = true
+            // memoryId 初始为 null，因为它还没被保存
         )
 
         _uiState.update { currentState ->

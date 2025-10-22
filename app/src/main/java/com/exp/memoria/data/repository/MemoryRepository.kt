@@ -30,6 +30,7 @@ import javax.inject.Inject
  *    - `getAllRawMemoriesForConversation(...)`: 获取特定对话的所有原始记忆。
  *    - `deleteConversation(...)`: 删除指定 ID 的对话及其所有相关记忆。
  *    - `renameConversation(...)`: 重命名指定 ID 的对话。
+ *    - `updateMemoryText(...)`: 更新指定记忆的文本内容。
  *
  * 关联:
  * - 它会注入 RawMemoryDao 和 CondensedMemoryDao。
@@ -51,6 +52,7 @@ interface MemoryRepository {
     suspend fun updateSystemInstruction(conversationId: String, systemInstruction: String?)
     suspend fun getConversationHeaderById(conversationId: String): ConversationHeader?
     suspend fun updateTotalTokenCount(conversationId: String, totalTokenCount: Int)
+    suspend fun updateMemoryText(memoryId: Long, newText: String)
 }
 
 class MemoryRepositoryImpl @Inject constructor(
@@ -212,5 +214,9 @@ class MemoryRepositoryImpl @Inject constructor(
 
     override suspend fun updateTotalTokenCount(conversationId: String, totalTokenCount: Int) {
         conversationHeaderDao.updateTotalTokenCount(conversationId, totalTokenCount)
+    }
+
+    override suspend fun updateMemoryText(memoryId: Long, newText: String) {
+        rawMemoryDao.updateTextById(memoryId, newText)
     }
 }
