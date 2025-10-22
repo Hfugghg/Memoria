@@ -1,21 +1,24 @@
 package com.exp.memoria.ui.chat
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.* // 导入所有 Material3 组件
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import kotlinx.coroutines.launch
+import java.util.UUID
 
 /**
  * [聊天界面的Compose UI]
@@ -38,7 +41,7 @@ import kotlinx.coroutines.launch
  * - "Switch Conversation" 的功能不完整，目前只是导航到历史列表。
  */
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun ChatScreen(
     navController: NavController,
@@ -49,6 +52,13 @@ fun ChatScreen(
     val totalTokenCount by viewModel.totalTokenCount.collectAsState() // 收集 totalTokenCount
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
+
+    // 用于跟踪长按菜单显示状态的变量
+    var showMenuForMessageId by remember { mutableStateOf<UUID?>(null) }
+    // 用于跟踪正在编辑的消息ID
+    var editingMessageId by remember { mutableStateOf<UUID?>(null) }
+    // 用于存储正在编辑的文本
+    var editingText by remember { mutableStateOf("") }
 
     LaunchedEffect(uiState.messages.size) {
         if (uiState.messages.isNotEmpty()) {
@@ -101,14 +111,44 @@ fun ChatScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(horizontal = 16.dp),
+                .padding(horizontal = 16.dp)
+                .pointerInput(Unit) {
+                    // 点击空白区域时关闭菜单
+                    detectTapGestures(onTap = { showMenuForMessageId = null })
+                },
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             items(
                 items = uiState.messages,
                 key = { message -> message.id } // 使用唯一的ID作为key
             ) { message ->
-                MessageBubble(message = message)
+                MessageBubble(
+                    message = message,
+                    isMenuVisible = showMenuForMessageId == message.id,
+                    onLongPress = {
+                        showMenuForMessageId = message.id
+                        editingMessageId = null // 重置编辑状态
+                    },
+                    isEditing = editingMessageId == message.id,
+                    editingText = if (editingMessageId == message.id) editingText else message.text,
+                    onEditingTextChange = { editingText = it },
+                    onEdit = {
+                        editingMessageId = message.id
+                        editingText = message.text
+                        showMenuForMessageId = null
+                    },
+                    onResay = {
+                        viewModel.regenerateResponse(message.id)
+                        showMenuForMessageId = null
+                    },
+                    onConfirmEdit = {
+                        editingMessageId?.let { id -> viewModel.updateMessage(id, editingText) }
+                        editingMessageId = null
+                    },
+                    onCancelEdit = {
+                        editingMessageId = null
+                    }
+                )
             }
             if (uiState.isLoading) {
                 item {
@@ -129,25 +169,101 @@ fun ChatScreen(
  *
  * @param message 要显示的消息对象。
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun MessageBubble(message: ChatMessage) {
+fun MessageBubble(
+    message: ChatMessage,
+    isMenuVisible: Boolean,
+    onLongPress: () -> Unit,
+    isEditing: Boolean,
+    editingText: String,
+    onEditingTextChange: (String) -> Unit,
+    onEdit: () -> Unit,
+    onResay: () -> Unit,
+    onConfirmEdit: () -> Unit,
+    onCancelEdit: () -> Unit
+) {
     val horizontalArrangement = if (message.isFromUser) Arrangement.End else Arrangement.Start
-    Row(
+    Column(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = horizontalArrangement
+        horizontalAlignment = if (message.isFromUser) Alignment.End else Alignment.Start
     ) {
-        Card(
-            colors = CardDefaults.cardColors(
-                containerColor = if (message.isFromUser) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.secondaryContainer
-            )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = horizontalArrangement
         ) {
-            Text(
-                text = message.text,
-                modifier = Modifier.padding(12.dp)
+            Card(
+                modifier = Modifier.pointerInput(Unit) {
+                    detectTapGestures(onLongPress = { onLongPress() })
+                },
+                colors = CardDefaults.cardColors(
+                    containerColor = if (message.isFromUser) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.secondaryContainer
+                )
+            ) {
+                if (isEditing) {
+                    TextField(
+                        value = editingText,
+                        onValueChange = onEditingTextChange,
+                        modifier = Modifier.padding(12.dp)
+                    )
+                } else {
+                    Text(
+                        text = message.text,
+                        modifier = Modifier.padding(12.dp)
+                    )
+                }
+            }
+        }
+        // 显示操作菜单
+        if (isMenuVisible || isEditing) {
+            MessageActionMenu(
+                message = message,
+                isEditing = isEditing,
+                onEdit = onEdit,
+                onResay = onResay,
+                onConfirmEdit = onConfirmEdit,
+                onCancelEdit = onCancelEdit
             )
         }
     }
 }
+
+@Composable
+fun MessageActionMenu(
+    message: ChatMessage,
+    isEditing: Boolean,
+    onEdit: () -> Unit,
+    onResay: () -> Unit,
+    onConfirmEdit: () -> Unit,
+    onCancelEdit: () -> Unit
+) {
+    Row(
+        modifier = Modifier.padding(top = 4.dp)
+    ) {
+        if (isEditing) {
+            IconButton(onClick = onConfirmEdit, modifier = Modifier.size(24.dp)) {
+                Icon(Icons.Default.Check, contentDescription = "Confirm")
+            }
+            Spacer(modifier = Modifier.width(4.dp))
+            IconButton(onClick = onCancelEdit, modifier = Modifier.size(24.dp)) {
+                Icon(Icons.Default.Close, contentDescription = "Cancel")
+            }
+        } else {
+            // 用户消息和LLM消息都有编辑按钮
+            IconButton(onClick = onEdit, modifier = Modifier.size(24.dp)) {
+                Icon(Icons.Default.Edit, contentDescription = "Edit")
+            }
+            // 只有LLM的消息有重说按钮
+            if (!message.isFromUser) {
+                Spacer(modifier = Modifier.width(4.dp))
+                IconButton(onClick = onResay, modifier = Modifier.size(24.dp)) {
+                    Icon(Icons.Default.Refresh, contentDescription = "Resay")
+                }
+            }
+        }
+    }
+}
+
 
 /**
  * [聊天输入栏]

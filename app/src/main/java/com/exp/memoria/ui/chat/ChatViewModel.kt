@@ -111,6 +111,43 @@ class ChatViewModel @Inject constructor(
         }
     }
 
+    fun updateMessage(messageId: UUID, newText: String) {
+        viewModelScope.launch {
+            _uiState.update { currentState ->
+                val updatedMessages = currentState.messages.map {
+                    if (it.id == messageId) it.copy(text = newText) else it
+                }
+                // 注：此处的修改仅更新UI状态，并未持久化到数据库。
+                // 这是因为从UI层的ChatMessage UUID难以直接映射回数据库的ID。
+                // 一个完整的实现需要修改ChatMessage以包含数据库ID，或实现一个更复杂的查找逻辑。
+                currentState.copy(messages = updatedMessages)
+            }
+        }
+    }
+
+    fun regenerateResponse(aiMessageId: UUID) {
+        viewModelScope.launch {
+            val messages = _uiState.value.messages
+            val aiMessageIndex = messages.indexOfFirst { it.id == aiMessageId }
+
+            // 确保我们找到了AI消息，并且它不是列表中的第一条消息
+            if (aiMessageIndex > 0) {
+                val userMessage = messages[aiMessageIndex - 1]
+                // 确保前一条消息是用户的
+                if (userMessage.isFromUser) {
+                    // 移除旧的AI回复和它之前的用户消息（如果它们是最后两条）
+                    _uiState.update { currentState ->
+                        currentState.copy(
+                            messages = currentState.messages.filterNot { it.id == aiMessageId }
+                        )
+                    }
+                    // 使用之前的用户查询重新发送消息
+                    sendMessage(userMessage.text)
+                }
+            }
+        }
+    }
+
     fun sendMessage(query: String) {
         if (query.isBlank()) return
 
