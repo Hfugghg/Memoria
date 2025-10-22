@@ -10,7 +10,7 @@ import com.exp.memoria.data.repository.ChatChunkResult
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.serialization.encodeToString
-import java.util.concurrent.CancellationException
+import kotlin.coroutines.cancellation.CancellationException
 import javax.inject.Inject
 import javax.inject.Singleton
 

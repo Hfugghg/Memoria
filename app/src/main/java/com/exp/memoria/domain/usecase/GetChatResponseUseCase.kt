@@ -34,7 +34,7 @@ class GetChatResponseUseCase @Inject constructor(
     private val llmRepository: LlmRepository // 注入LLM仓库
 ) {
     suspend operator fun invoke(
-        query: String,
+        query: String?, // 将 query 参数改为可空
         conversationId: String,
         isStreaming: Boolean = false
     ): Flow<ChatChunkResult> {
@@ -55,8 +55,11 @@ class GetChatResponseUseCase @Inject constructor(
             )
         }.toMutableList()
 
-        // 3. 将用户当前的查询作为最新的一条“user”消息，添加到历史记录末尾
-        history.add(ChatContent(role = "user", parts = listOf(Part(text = query))))
+        // 3. 如果 query 不为空，则将其作为最新的一条“user”消息，添加到历史记录末尾
+        //    如果 query 为空，则表示是“重说”操作，此时历史记录中已包含用户消息，无需重复添加。
+        if (!query.isNullOrBlank()) {
+            history.add(ChatContent(role = "user", parts = listOf(Part(text = query))))
+        }
 
         // 4. 获取对话的 header，从中提取 systemInstruction 和 responseSchema
         val conversationHeader = memoryRepository.getConversationHeaderById(conversationId)

@@ -58,4 +58,10 @@ interface RawMemoryDao {
 
     @Query("DELETE FROM raw_memory WHERE conversationId = :conversationId")
     suspend fun deleteByConversationId(conversationId: String)
+
+    @Query("UPDATE raw_memory SET text = :newText WHERE id = :id")
+    suspend fun updateTextById(id: Long, newText: String)
+
+    @Query("DELETE FROM raw_memory WHERE conversationId = :conversationId AND id >= :id")
+    suspend fun deleteFrom(conversationId: String, id: Long)
 }

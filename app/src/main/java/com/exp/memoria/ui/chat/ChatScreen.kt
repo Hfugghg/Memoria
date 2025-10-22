@@ -1,21 +1,25 @@
 package com.exp.memoria.ui.chat
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.* // 导入所有 Material3 组件
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
+import com.exp.memoria.ui.chatscreen.MessageBubble
 import kotlinx.coroutines.launch
+import java.util.UUID
 
 /**
  * [聊天界面的Compose UI]
@@ -30,7 +34,7 @@ import kotlinx.coroutines.launch
  *
  * 关联:
  * - 通过Hilt的 `@HiltViewModel` 机制获取 ChatViewModel 的实例。
- * - 使用 `ui/components` 中定义的可复用组件来构建界面。
+ * - 使用 `ui/chatscreen` 中定义的可复用组件来构建界面。
  *
  * 未实现的功能职责:
  * - TopAppBar 中没有显示当前的对话标题。
@@ -38,7 +42,7 @@ import kotlinx.coroutines.launch
  * - "Switch Conversation" 的功能不完整，目前只是导航到历史列表。
  */
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun ChatScreen(
     navController: NavController,
@@ -49,6 +53,13 @@ fun ChatScreen(
     val totalTokenCount by viewModel.totalTokenCount.collectAsState() // 收集 totalTokenCount
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
+
+    // 用于跟踪长按菜单显示状态的变量
+    var showMenuForMessageId by remember { mutableStateOf<UUID?>(null) }
+    // 用于跟踪正在编辑的消息ID
+    var editingMessageId by remember { mutableStateOf<UUID?>(null) }
+    // 用于存储正在编辑的文本
+    var editingText by remember { mutableStateOf("") }
 
     LaunchedEffect(uiState.messages.size) {
         if (uiState.messages.isNotEmpty()) {
@@ -101,14 +112,44 @@ fun ChatScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(horizontal = 16.dp),
+                .padding(horizontal = 16.dp)
+                .pointerInput(Unit) {
+                    // 点击空白区域时关闭菜单
+                    detectTapGestures(onTap = { showMenuForMessageId = null })
+                },
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             items(
                 items = uiState.messages,
                 key = { message -> message.id } // 使用唯一的ID作为key
             ) { message ->
-                MessageBubble(message = message)
+                MessageBubble(
+                    message = message,
+                    isMenuVisible = showMenuForMessageId == message.id,
+                    onLongPress = {
+                        showMenuForMessageId = message.id
+                        editingMessageId = null // 重置编辑状态
+                    },
+                    isEditing = editingMessageId == message.id,
+                    editingText = if (editingMessageId == message.id) editingText else message.text,
+                    onEditingTextChange = { editingText = it },
+                    onEdit = {
+                        editingMessageId = message.id
+                        editingText = message.text
+                        showMenuForMessageId = null
+                    },
+                    onResay = {
+                        viewModel.regenerateResponse(message.id)
+                        showMenuForMessageId = null
+                    },
+                    onConfirmEdit = {
+                        editingMessageId?.let { id -> viewModel.updateMessage(id, editingText) }
+                        editingMessageId = null
+                    },
+                    onCancelEdit = {
+                        editingMessageId = null
+                    }
+                )
             }
             if (uiState.isLoading) {
                 item {
@@ -117,34 +158,6 @@ fun ChatScreen(
                     }
                 }
             }
-        }
-    }
-}
-
-/**
- * [消息气泡]
- *
- * 这是一个可组合函数，用于显示单条聊天消息。
- * 它会根据消息的来源（用户或 AI）显示不同的对齐方式和背景颜色。
- *
- * @param message 要显示的消息对象。
- */
-@Composable
-fun MessageBubble(message: ChatMessage) {
-    val horizontalArrangement = if (message.isFromUser) Arrangement.End else Arrangement.Start
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = horizontalArrangement
-    ) {
-        Card(
-            colors = CardDefaults.cardColors(
-                containerColor = if (message.isFromUser) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.secondaryContainer
-            )
-        ) {
-            Text(
-                text = message.text,
-                modifier = Modifier.padding(12.dp)
-            )
         }
     }
 }
