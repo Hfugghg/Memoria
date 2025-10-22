@@ -136,4 +136,7 @@ dependencies {
     // DataStore
     implementation("androidx.datastore:datastore-preferences:1.1.0-beta01")
     implementation("androidx.datastore:datastore-core:1.1.0-beta01")
+
+    // Markdown
+    implementation("com.github.jeziellago:compose-markdown:0.5.7")
 }
