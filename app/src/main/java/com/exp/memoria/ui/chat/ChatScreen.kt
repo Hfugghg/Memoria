@@ -17,6 +17,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
+import com.exp.memoria.ui.chat.chatviewmodel.ChatViewModel
 import com.exp.memoria.ui.chatscreen.MessageBubble
 import kotlinx.coroutines.launch
 import java.util.UUID

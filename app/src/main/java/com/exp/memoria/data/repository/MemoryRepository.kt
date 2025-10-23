@@ -8,6 +8,12 @@ import com.exp.memoria.data.local.entity.CondensedMemory
 import com.exp.memoria.data.local.entity.ConversationHeader
 import com.exp.memoria.data.local.entity.ConversationInfo
 import com.exp.memoria.data.local.entity.RawMemory
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import javax.inject.Inject
@@ -46,7 +52,7 @@ interface MemoryRepository {
     suspend fun getAllRawMemories(): List<RawMemory>
     suspend fun getAllRawMemoriesForConversation(conversationId: String): List<RawMemory>
     suspend fun getRawMemories(conversationId: String, limit: Int, offset: Int): List<RawMemory>
-    suspend fun getConversations(): List<ConversationInfo>
+    fun getConversations(): Flow<List<ConversationInfo>>
     suspend fun createNewConversation(conversationId: String)
     suspend fun updateConversationLastUpdate(conversationId: String, timestamp: Long)
     suspend fun deleteConversation(conversationId: String)
@@ -167,16 +173,34 @@ class MemoryRepositoryImpl @Inject constructor(
         return rawMemoryDao.getWithLimitOffset(conversationId, limit, offset)
     }
 
-    override suspend fun getConversations(): List<ConversationInfo> {
-        val conversationHeaders = conversationHeaderDao.getAllConversationHeaders()
-        return conversationHeaders.map { header ->
-            val latestRawMemory = rawMemoryDao.getLatestMemoryForConversation(header.conversationId)
-            ConversationInfo(
-                conversationId = header.conversationId,
-                name = header.name,
-                lastTimestamp = latestRawMemory?.timestamp ?: header.creationTimestamp
-            )
-        }
+    @OptIn(ExperimentalCoroutinesApi::class)
+    override fun getConversations(): Flow<List<ConversationInfo>> {
+        // 监听所有对话头部的变化
+        return conversationHeaderDao.getAllConversationHeaders()
+            .flatMapLatest { headers ->
+                if (headers.isEmpty()) {
+                    // 如果没有对话，立即返回一个空的Flow
+                    return@flatMapLatest flowOf(emptyList<ConversationInfo>())
+                }
+                // 对于每个对话头，创建一个Flow来获取其最新的消息，并映射成ConversationInfo
+                val conversationInfoFlows = headers.map { header ->
+                    rawMemoryDao.getLatestMemoryForConversation(header.conversationId)
+                        .map { latestRawMemory ->
+                            ConversationInfo(
+                                conversationId = header.conversationId,
+                                name = header.name,
+                                // 使用最新消息的时间戳，如果不存在（比如刚创建的对话），则使用对话创建时的时间戳
+                                lastTimestamp = latestRawMemory?.timestamp ?: header.creationTimestamp
+                            )
+                        }
+                }
+                // 将多个ConversationInfo的Flow合并成一个Flow<List<ConversationInfo>>
+                combine(conversationInfoFlows) { conversationInfos ->
+                    // 每当任何一个对话的最新消息更新时，这个代码块就会执行
+                    // 对合并后的列表按时间戳降序排序
+                    conversationInfos.sortedByDescending { it.lastTimestamp }
+                }
+            }
     }
 
     override suspend fun createNewConversation(conversationId: String) {

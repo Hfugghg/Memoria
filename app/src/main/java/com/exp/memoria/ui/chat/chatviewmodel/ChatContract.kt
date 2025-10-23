@@ -1,4 +1,4 @@
-package com.exp.memoria.ui.chat
+package com.exp.memoria.ui.chat.chatviewmodel
 
 import java.util.UUID
 
@@ -10,7 +10,7 @@ import java.util.UUID
  * @property id 一个唯一的标识符，用于在列表中高效地更新和识别消息。
  * @property text 消息的文本内容。
  * @property isFromUser 一个布尔值，如果消息来自用户，则为 true；如果来自 AI 模型，则为 false。
- * @property memoryId 对应于数据库中 `RawMemory` 表的 `id`。这对于更新或删除操作至关重要。
+ * @property memoryId 对应于数据库中 `RawMemory` 表的 `id`。这对于更新或删除操作至-关重要。
  *                    对于尚未存入数据库的新消息（例如，用户刚输入但未发送的消息），此值为 null。
  */
 data class ChatMessage(
