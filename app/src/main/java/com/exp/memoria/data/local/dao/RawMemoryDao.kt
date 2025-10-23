@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.Query
 import com.exp.memoria.data.local.entity.RawMemory
+import kotlinx.coroutines.flow.Flow
 
 /**
  * [原始记忆数据访问对象 (DAO)]
@@ -54,7 +55,7 @@ interface RawMemoryDao {
     // suspend fun getConversations(): List<ConversationInfo>
 
     @Query("SELECT * FROM raw_memory WHERE conversationId = :conversationId ORDER BY timestamp DESC LIMIT 1")
-    suspend fun getLatestMemoryForConversation(conversationId: String): RawMemory?
+    fun getLatestMemoryForConversation(conversationId: String): Flow<RawMemory?>
 
     @Query("DELETE FROM raw_memory WHERE conversationId = :conversationId")
     suspend fun deleteByConversationId(conversationId: String)

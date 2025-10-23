@@ -9,10 +9,12 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import com.exp.memoria.data.local.converters.Converters
 import com.exp.memoria.data.local.dao.CondensedMemoryDao
 import com.exp.memoria.data.local.dao.ConversationHeaderDao
+import com.exp.memoria.data.local.dao.MessageFileDao
 import com.exp.memoria.data.local.dao.RawMemoryDao
 import com.exp.memoria.data.local.entity.CondensedMemory
 import com.exp.memoria.data.local.entity.ConversationHeader
 import com.exp.memoria.data.local.entity.FTSMemoryIndex
+import com.exp.memoria.data.local.entity.MessageFile
 import com.exp.memoria.data.local.entity.RawMemory
 
 /**
@@ -31,8 +33,8 @@ import com.exp.memoria.data.local.entity.RawMemory
  *
  */
 @Database(
-    entities = [RawMemory::class, CondensedMemory::class, FTSMemoryIndex::class, ConversationHeader::class],
-    version = 4, // 数据库版本从 3 增加到 4
+    entities = [RawMemory::class, CondensedMemory::class, FTSMemoryIndex::class, ConversationHeader::class, MessageFile::class],
+    version = 5, // 数据库版本从 4 增加到 5
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -40,6 +42,7 @@ abstract class MemoriaDatabase : RoomDatabase() {
     abstract fun rawMemoryDao(): RawMemoryDao
     abstract fun condensedMemoryDao(): CondensedMemoryDao
     abstract fun conversationHeaderDao(): ConversationHeaderDao
+    abstract fun messageFileDao(): MessageFileDao
 
     companion object {
         private const val TAG = "MemoriaDatabase"
@@ -130,6 +133,25 @@ abstract class MemoriaDatabase : RoomDatabase() {
                 Log.d(TAG, "执行 MIGRATION_3_4: 为 conversation_header 表添加 totalTokenCount 列")
                 // 添加 totalTokenCount 列，默认值为 0
                 db.execSQL("ALTER TABLE conversation_header ADD COLUMN totalTokenCount INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
+        // 数据库迁移，从版本 4 到版本 5：添加 message_files 表
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                Log.d(TAG, "执行 MIGRATION_4_5: 创建 message_files 表")
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS `message_files` (
+                        `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        `rawMemoryId` INTEGER NOT NULL,
+                        `fileName` TEXT NOT NULL,
+                        `fileType` TEXT NOT NULL,
+                        `fileContentBase64` TEXT NOT NULL,
+                        FOREIGN KEY(`rawMemoryId`) REFERENCES `raw_memory`(`id`) ON DELETE CASCADE
+                    )
+                """.trimIndent())
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_message_files_rawMemoryId` ON `message_files` (`rawMemoryId`)")
+                Log.d(TAG, "MIGRATION_4_5 完成。")
             }
         }
     }

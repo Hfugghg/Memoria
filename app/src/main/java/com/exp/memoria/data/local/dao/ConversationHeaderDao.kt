@@ -2,6 +2,7 @@ package com.exp.memoria.data.local.dao
 
 import androidx.room.*
 import com.exp.memoria.data.local.entity.ConversationHeader
+import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface ConversationHeaderDao {
@@ -11,8 +12,8 @@ interface ConversationHeaderDao {
     @Update
     suspend fun update(conversationHeader: ConversationHeader)
 
-    @Query("SELECT * FROM conversation_header ORDER BY lastUpdateTimestamp DESC")
-    suspend fun getAllConversationHeaders(): List<ConversationHeader>
+    @Query("SELECT * FROM conversation_header")
+    fun getAllConversationHeaders(): Flow<List<ConversationHeader>>
 
     @Query("SELECT COUNT(*) FROM conversation_header WHERE conversationId = :conversationId")
     suspend fun countConversationHeaders(conversationId: String): Int

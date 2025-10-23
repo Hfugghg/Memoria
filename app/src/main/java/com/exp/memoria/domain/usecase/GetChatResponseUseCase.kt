@@ -2,10 +2,12 @@ package com.exp.memoria.domain.usecase
 
 import android.util.Log
 import com.exp.memoria.data.remote.dto.ChatContent
+import com.exp.memoria.data.remote.dto.InlineData
 import com.exp.memoria.data.remote.dto.Part
 import com.exp.memoria.data.repository.ChatChunkResult
 import com.exp.memoria.data.repository.LlmRepository
 import com.exp.memoria.data.repository.MemoryRepository
+import com.exp.memoria.data.model.FileAttachment
 import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
 
@@ -36,7 +38,8 @@ class GetChatResponseUseCase @Inject constructor(
     suspend operator fun invoke(
         query: String?, // 将 query 参数改为可空
         conversationId: String,
-        isStreaming: Boolean = false
+        isStreaming: Boolean = false,
+        attachments: List<FileAttachment> = emptyList() // 添加附件参数
     ): Flow<ChatChunkResult> {
         // 在未来的开发中，这里将实现完整的“热记忆”+“冷记忆”+“查询”的上下文组装逻辑
 
@@ -48,10 +51,23 @@ class GetChatResponseUseCase @Inject constructor(
         )
 
         // 2. 将原始记忆转换为符合API数据结构的 ChatContent 对象列表
-        val history = allMemories.map { memory ->
+        val history = allMemories.map { memory -> // RawMemory 实体有 id 属性
+            // 为每条记忆构建其 parts 列表，先添加文本部分
+            val parts = mutableListOf(Part(text = memory.text))
+
+            // 根据记忆ID获取其关联的所有附件文件
+            // 假设 RawMemory 有一个 'id' 属性，并且 MessageFile 有 'fileType' 和 'base64Data' 属性
+            val memoryAttachments = memoryRepository.getMessageFilesForMemory(memory.id)
+
+            // 将附件转换为 Part 并添加到列表中
+            memoryAttachments.forEach { attachment ->
+                parts.add(Part(inlineData = InlineData(mimeType = attachment.fileType, data = attachment.fileContentBase64)))
+            }
+
+            // 使用包含文本和所有附件的 parts 列表创建 ChatContent
             ChatContent(
                 role = memory.sender,
-                parts = listOf(Part(text = memory.text))
+                parts = parts
             )
         }.toMutableList()
 
@@ -67,6 +83,6 @@ class GetChatResponseUseCase @Inject constructor(
         val responseSchema = conversationHeader?.responseSchema
 
         // 5. 调用LLM仓库，这将正确返回 Flow<ChatChunkResult>，并传入 systemInstruction 和 responseSchema
-        return llmRepository.chatResponse(history, systemInstruction, responseSchema, isStreaming)
+        return llmRepository.chatResponse(history, systemInstruction, responseSchema, isStreaming, attachments)
     }
 }
