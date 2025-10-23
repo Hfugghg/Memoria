@@ -56,26 +56,157 @@ import javax.inject.Inject
  * - GetChatResponseUseCase 会注入并使用这个Repository来管理记忆数据。
  */
 interface MemoryRepository {
+    /**
+     * 保存一个新的问答对。
+     *
+     * @param query 用户查询文本。
+     * @param response AI响应文本。
+     * @param conversationId 对话ID。
+     * @param attachments 与用户消息关联的文件附件列表。
+     * @return 模型消息的ID。
+     */
     suspend fun saveNewMemory(query: String, response: String, conversationId: String, attachments: List<FileAttachment>): Long
+    /**
+     * 只保存AI的回复（用于重说等场景）。
+     *
+     * @param userQuery 用户查询文本。
+     * @param response AI响应文本。
+     * @param conversationId 对话ID。
+     * @return 模型消息的ID。
+     */
     suspend fun saveOnlyAiResponse(userQuery: String, response: String, conversationId: String): Long
+    /**
+     * 根据ID获取指定的原始记忆。
+     *
+     * @param id 记忆的ID。
+     * @return 对应的RawMemory对象，如果不存在则为null。
+     */
     suspend fun getMemoryById(id: Long): RawMemory?
+    /**
+     * 更新一个已处理的记忆。
+     *
+     * @param id 记忆的ID。
+     * @param summary 记忆的摘要文本。
+     * @param vector 记忆的向量表示。
+     */
     suspend fun updateProcessedMemory(id: Long, summary: String, vector: List<Float>)
+    /**
+     * 获取所有原始记忆。
+     *
+     * @return 所有RawMemory对象的列表。
+     */
     suspend fun getAllRawMemories(): List<RawMemory>
+    /**
+     * 获取特定对话的所有原始记忆。
+     *
+     * @param conversationId 对话ID。
+     * @return 特定对话的所有RawMemory对象的列表。
+     */
     suspend fun getAllRawMemoriesForConversation(conversationId: String): List<RawMemory>
+    /**
+     * 获取分页的原始记忆。
+     *
+     * @param conversationId 对话ID。
+     * @param limit 返回的最大记忆数量。
+     * @param offset 跳过的记忆数量。
+     * @return 分页的RawMemory对象的列表。
+     */
     suspend fun getRawMemories(conversationId: String, limit: Int, offset: Int): List<RawMemory>
+    /**
+     * 获取所有对话的列表。
+     *
+     * @return 包含ConversationInfo对象的Flow。
+     */
     fun getConversations(): Flow<List<ConversationInfo>>
+    /**
+     * 创建一个新的对话头部记录。
+     *
+     * @param conversationId 新对话的ID。
+     */
     suspend fun createNewConversation(conversationId: String)
+    /**
+     * 更新对话的最后更新时间。
+     *
+     * @param conversationId 对话ID。
+     * @param timestamp 最后更新时间戳。
+     */
     suspend fun updateConversationLastUpdate(conversationId: String, timestamp: Long)
+    /**
+     * 删除指定 ID 的对话及其所有相关记忆。
+     *
+     * @param conversationId 要删除的对话ID。
+     */
     suspend fun deleteConversation(conversationId: String)
+    /**
+     * 重命名指定 ID 的对话。
+     *
+     * @param conversationId 要重命名的对话ID。
+     * @param newName 新的对话名称。
+     */
     suspend fun renameConversation(conversationId: String, newName: String)
+    /**
+     * 更新对话的响应模式。
+     *
+     * @param conversationId 对话ID。
+     * @param responseSchema 新的响应模式字符串，如果为null则清除。
+     */
     suspend fun updateResponseSchema(conversationId: String, responseSchema: String?)
+    /**
+     * 更新对话的系统指令。
+     *
+     * @param conversationId 对话ID。
+     * @param systemInstruction 新的系统指令字符串，如果为null则清除。
+     */
     suspend fun updateSystemInstruction(conversationId: String, systemInstruction: String?)
+    /**
+     * 根据ID获取对话头部。
+     *
+     * @param conversationId 对话ID。
+     * @return 对应的ConversationHeader对象，如果不存在则为null。
+     */
     suspend fun getConversationHeaderById(conversationId: String): ConversationHeader?
+    /**
+     * 更新对话的总令牌计数。
+     *
+     * @param conversationId 对话ID。
+     * @param totalTokenCount 新的总令牌计数。
+     */
     suspend fun updateTotalTokenCount(conversationId: String, totalTokenCount: Int)
+    /**
+     * 更新指定记忆的文本内容。
+     *
+     * @param memoryId 记忆ID。
+     * @param newText 新的文本内容。
+     */
     suspend fun updateMemoryText(memoryId: Long, newText: String)
+    /**
+     * 删除指定ID及其之后的所有记忆。
+     *
+     * @param conversationId 对话ID。
+     * @param id 起始删除的记忆ID。
+     */
     suspend fun deleteFrom(conversationId: String, id: Long)
+    /**
+     * 保存一个与消息关联的文件。
+     *
+     * @param file 要保存的MessageFile对象。
+     * @return 插入的文件ID。
+     */
     suspend fun saveMessageFile(file: MessageFile): Long
+    /**
+     * 获取与指定消息关联的所有文件。
+     *
+     * @param rawMemoryId 原始记忆的ID。
+     * @return 与该记忆关联的MessageFile列表。
+     */
     suspend fun getMessageFilesForMemory(rawMemoryId: Long): List<MessageFile>
+    /**
+     * 保存用户消息。
+     *
+     * @param query 用户查询文本。
+     * @param conversationId 对话ID。
+     * @return 插入的用户消息ID。
+     */
     suspend fun saveUserMemory(query: String, conversationId: String): Long
 }
 
@@ -89,7 +220,7 @@ class MemoryRepositoryImpl @Inject constructor(
     override suspend fun saveNewMemory(query: String, response: String, conversationId: String, attachments: List<FileAttachment>): Long {
         val now = System.currentTimeMillis()
 
-        // Ensure conversation header exists or create a new one, and update timestamp
+        // 确保对话头部存在或创建，并更新时间戳
         if (conversationHeaderDao.countConversationHeaders(conversationId) == 0) {
             conversationHeaderDao.insert(ConversationHeader(conversationId, "新对话", now, now))
         } else {
@@ -98,7 +229,7 @@ class MemoryRepositoryImpl @Inject constructor(
             }
         }
 
-        // Insert user message (query)
+        // 插入用户消息 (query)
         val userMemory = RawMemory(
             conversationId = conversationId,
             sender = "user",
@@ -107,7 +238,7 @@ class MemoryRepositoryImpl @Inject constructor(
         )
         val userMemoryId = rawMemoryDao.insert(userMemory)
 
-        // Save attachments linked to the user message
+        // 保存与用户消息关联的附件
         attachments.forEach { attachment ->
             val messageFile = MessageFile(
                 rawMemoryId = userMemoryId,
@@ -118,7 +249,7 @@ class MemoryRepositoryImpl @Inject constructor(
             messageFileDao.insert(messageFile)
         }
 
-        // Insert model message (response)
+        // 插入模型消息 (response)
         val modelMemory = RawMemory(
             conversationId = conversationId,
             sender = "model",
@@ -127,7 +258,7 @@ class MemoryRepositoryImpl @Inject constructor(
         )
         val modelMemoryId = rawMemoryDao.insert(modelMemory)
 
-        // Create a condensed memory linked to the model's response
+        // 创建一个与模型响应关联的精简记忆
         val condensedMemory = CondensedMemory(
             raw_memory_id = modelMemoryId,
             conversationId = conversationId,
@@ -166,12 +297,12 @@ class MemoryRepositoryImpl @Inject constructor(
     override suspend fun saveOnlyAiResponse(userQuery: String, response: String, conversationId: String): Long {
         val now = System.currentTimeMillis()
 
-        // Ensure conversation header exists and update its timestamp
+        // 确保对话头部存在并更新其时间戳
         conversationHeaderDao.getConversationHeaderById(conversationId)?.let {
             conversationHeaderDao.update(it.copy(lastUpdateTimestamp = now))
-        } // If header doesn't exist, we assume it's an anomaly and proceed, as saveNewMemory should have created it.
+        } // 如果头部不存在，我们假定这是一个异常并继续，因为 saveNewMemory 应该已经创建了它。
 
-        // Insert model message (response)
+        // 插入模型消息 (response)
         val modelMemory = RawMemory(
             conversationId = conversationId,
             sender = "model",
@@ -180,11 +311,11 @@ class MemoryRepositoryImpl @Inject constructor(
         )
         val modelMemoryId = rawMemoryDao.insert(modelMemory)
 
-        // Create a condensed memory linked to the model's response
+        // 创建一个与模型响应关联的精简记忆
         val condensedMemory = CondensedMemory(
             raw_memory_id = modelMemoryId,
             conversationId = conversationId,
-            summary_text = "", // The summary will be generated by the worker
+            summary_text = "", // 摘要将由工作器生成
             vector_int8 = null,
             status = "NEW",
             timestamp = now
