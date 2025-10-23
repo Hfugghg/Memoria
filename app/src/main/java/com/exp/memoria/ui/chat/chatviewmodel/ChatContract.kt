@@ -1,5 +1,6 @@
 package com.exp.memoria.ui.chat.chatviewmodel
 
+import android.net.Uri
 import java.util.UUID
 
 /**
@@ -28,8 +29,10 @@ data class ChatMessage(
  *
  * @property messages 当前聊天对话中的消息列表。
  * @property isLoading 一个布尔值，指示应用当前是否正在等待 AI 的响应。用于在界面上显示加载指示器。
+ * @property selectedFiles 用户选择的要附加到下一条消息的文件URI列表。
  */
 data class ChatState(
     val messages: List<ChatMessage> = emptyList(),
-    val isLoading: Boolean = false
+    val isLoading: Boolean = false,
+    val selectedFiles: List<Uri> = emptyList()
 )

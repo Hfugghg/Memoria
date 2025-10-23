@@ -1,18 +1,24 @@
 package com.exp.memoria.ui.chat.chatviewmodel
 
 import android.app.Application
+import android.net.Uri // 导入 Uri 类
+import android.provider.OpenableColumns
+import android.util.Base64
 import android.util.Log
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.exp.memoria.data.model.FileAttachment
 import com.exp.memoria.data.repository.MemoryRepository
 import com.exp.memoria.data.repository.SettingsRepository
 import com.exp.memoria.domain.usecase.GetChatResponseUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.util.*
 import javax.inject.Inject
 
@@ -21,7 +27,7 @@ class ChatViewModel @Inject constructor(
     getChatResponseUseCase: GetChatResponseUseCase,
     private val memoryRepository: MemoryRepository,
     settingsRepository: SettingsRepository,
-    application: Application,
+    private val application: Application,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
@@ -161,7 +167,11 @@ class ChatViewModel @Inject constructor(
                     }
 
                     Log.d("ChatViewModel", "regenerateResponse: 重新发送用户消息: ${userMessage.text}")
-                    responseHandler.generateAiResponse(queryForLlm = null, userQueryForSaving = userMessage.text)
+                    responseHandler.generateAiResponse(
+                        queryForLlm = null,
+                        userQueryForSaving = userMessage.text,
+                        attachments = emptyList()
+                    )
                 } else {
                     Log.w(
                         "ChatViewModel",
@@ -175,7 +185,8 @@ class ChatViewModel @Inject constructor(
     }
 
     fun sendMessage(query: String) {
-        if (query.isBlank()) return
+        val currentUiState = _uiState.value
+        if (query.isBlank() && currentUiState.selectedFiles.isEmpty()) return
 
         val userMessage = ChatMessage(
             id = UUID.randomUUID(),
@@ -193,7 +204,77 @@ class ChatViewModel @Inject constructor(
         _totalTokenCount.value = null
 
         viewModelScope.launch {
-            responseHandler.generateAiResponse(queryForLlm = query, userQueryForSaving = query)
+            // 1. 将URI转换为附件
+            val attachments = if (currentUiState.selectedFiles.isNotEmpty()) {
+                convertUrisToAttachments(currentUiState.selectedFiles)
+            } else {
+                emptyList()
+            }
+
+            // 2. 准备用于保存到数据库的用户消息文本 (核心修复点：不再附加文件名)
+            val userQueryForSaving = query
+
+            // 3. 调用 responseHandler 处理响应生成和数据保存
+            responseHandler.generateAiResponse(
+                queryForLlm = query,
+                userQueryForSaving = userQueryForSaving, // 使用原始查询文本
+                attachments = attachments
+            )
+
+            // 4. 发送成功后，清空selectedFiles列表
+            _uiState.update { it.copy(selectedFiles = emptyList()) }
+        }
+    }
+
+    /**
+     * 处理图片选择的URI。
+     * @param uri 选择的图片URI，可能为null。
+     */
+    fun handleImageSelection(uri: Uri?) {
+        uri?.let {
+            _uiState.update { currentState ->
+                currentState.copy(selectedFiles = currentState.selectedFiles + it)
+            }
+            Log.d("ChatViewModel", "已添加图片 URI: $it")
+        }
+    }
+
+    /**
+     * 处理文件选择的URI。
+     * @param uri 选择的文件URI，可能为null。
+     */
+    fun handleFileSelection(uri: Uri?) {
+        uri?.let {
+            _uiState.update { currentState ->
+                currentState.copy(selectedFiles = currentState.selectedFiles + it)
+            }
+            Log.d("ChatViewModel", "已添加文件 URI: $it")
+        }
+    }
+
+    private suspend fun convertUrisToAttachments(uris: List<Uri>): List<FileAttachment> = withContext(Dispatchers.IO) {
+        uris.mapNotNull { uri ->
+            try {
+                var fileName = "unknown"
+                application.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+                    if (cursor.moveToFirst()) {
+                        val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                        if (nameIndex != -1) {
+                            fileName = cursor.getString(nameIndex)
+                        }
+                    }
+                }
+                val fileType = application.contentResolver.getType(uri)
+
+                val inputStream = application.contentResolver.openInputStream(uri) ?: return@mapNotNull null
+                val bytes = inputStream.use { it.readBytes() }
+                val base64Data = Base64.encodeToString(bytes, Base64.NO_WRAP)
+
+                FileAttachment(base64Data, fileName, fileType)
+            } catch (e: Exception) {
+                Log.e("ChatViewModel", "无法将URI转换为附件: $uri", e)
+                null
+            }
         }
     }
 }

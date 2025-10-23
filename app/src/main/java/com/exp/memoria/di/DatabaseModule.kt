@@ -5,6 +5,7 @@ import androidx.room.Room
 import com.exp.memoria.data.local.MemoriaDatabase
 import com.exp.memoria.data.local.dao.CondensedMemoryDao
 import com.exp.memoria.data.local.dao.ConversationHeaderDao
+import com.exp.memoria.data.local.dao.MessageFileDao
 import com.exp.memoria.data.local.dao.RawMemoryDao
 import dagger.Module
 import dagger.Provides
@@ -47,7 +48,8 @@ object DatabaseModule {
         ).addMigrations(
             MemoriaDatabase.MIGRATION_1_2,
             MemoriaDatabase.MIGRATION_2_3,
-            MemoriaDatabase.MIGRATION_3_4 // 添加从版本3到4的迁移
+            MemoriaDatabase.MIGRATION_3_4,
+            MemoriaDatabase.MIGRATION_4_5 // 添加从版本4到5的迁移
         )
             .addCallback(MemoriaDatabase.FTS_TABLE_CALLBACK)
             .build()
@@ -66,5 +68,10 @@ object DatabaseModule {
     @Provides
     fun provideConversationHeaderDao(database: MemoriaDatabase): ConversationHeaderDao {
         return database.conversationHeaderDao()
+    }
+
+    @Provides
+    fun provideMessageFileDao(database: MemoriaDatabase): MessageFileDao {
+        return database.messageFileDao()
     }
 }
