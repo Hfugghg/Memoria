@@ -94,13 +94,30 @@ object AppModule {
 
     @Provides
     @Singleton
+    fun provideFileAttachmentRepository(messageFileDao: MessageFileDao): FileAttachmentRepository {
+        return FileAttachmentRepositoryImpl(messageFileDao)
+    }
+
+    @Provides
+    @Singleton
+    fun provideMessageRepository(rawMemoryDao: RawMemoryDao, condensedMemoryDao: CondensedMemoryDao, fileAttachmentRepository: FileAttachmentRepository): MessageRepository {
+        return MessageRepositoryImpl(rawMemoryDao, condensedMemoryDao, fileAttachmentRepository)
+    }
+
+    @Provides
+    @Singleton
+    fun provideConversationRepository(conversationHeaderDao: ConversationHeaderDao, rawMemoryDao: RawMemoryDao): ConversationRepository {
+        return ConversationRepositoryImpl(conversationHeaderDao, rawMemoryDao)
+    }
+
+    @Provides
+    @Singleton
     fun provideMemoryRepository(
-        rawMemoryDao: RawMemoryDao,
-        condensedMemoryDao: CondensedMemoryDao,
-        conversationHeaderDao: ConversationHeaderDao,
-        messageFileDao: MessageFileDao
+        fileAttachmentRepository: FileAttachmentRepository,
+        messageRepository: MessageRepository,
+        conversationRepository: ConversationRepository
     ): MemoryRepository {
-        return MemoryRepositoryImpl(rawMemoryDao, condensedMemoryDao, conversationHeaderDao, messageFileDao)
+        return MemoryRepositoryImpl(fileAttachmentRepository, messageRepository, conversationRepository)
     }
 
     @Provides

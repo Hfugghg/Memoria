@@ -1,6 +1,7 @@
 package com.exp.memoria.data.local.dao
 
 import androidx.room.Dao
+import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
@@ -23,6 +24,13 @@ interface MessageFileDao {
      */
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(messageFile: MessageFile): Long
+
+    /**
+     * 删除一个文件记录。
+     * @param messageFile 要删除的文件实体。
+     */
+    @Delete
+    suspend fun delete(messageFile: MessageFile)
 
     /**
      * 根据消息ID查询关联的所有文件。
