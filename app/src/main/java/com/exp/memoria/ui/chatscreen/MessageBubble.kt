@@ -1,19 +1,25 @@
 package com.exp.memoria.ui.chatscreen
 
+import android.content.ContentResolver
+import android.net.Uri
+import android.provider.OpenableColumns
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import coil.compose.AsyncImage
 import com.exp.memoria.ui.chat.chatviewmodel.ChatMessage
 import dev.jeziellago.compose.markdowntext.MarkdownText
 
@@ -44,6 +50,11 @@ fun MessageBubble(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = if (message.isFromUser) Alignment.End else Alignment.Start
     ) {
+        // 附件预览区域
+        if (message.attachments.isNotEmpty()) {
+            AttachmentPreview(attachments = message.attachments, isFromUser = message.isFromUser)
+        }
+
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = horizontalArrangement
@@ -120,4 +131,72 @@ fun MessageActionMenu(
             }
         }
     }
+}
+
+@Composable
+fun AttachmentPreview(attachments: List<Uri>, isFromUser: Boolean) {
+    val context = LocalContext.current
+    val horizontalArrangement = if (isFromUser) Arrangement.End else Arrangement.Start
+
+    LazyRow(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 4.dp),
+        horizontalArrangement = horizontalArrangement, // 应用对齐方式
+        contentPadding = PaddingValues(horizontal = 16.dp) // 增加水平内边距以匹配消息气泡
+    ) {
+        items(attachments) { uri ->
+            val mimeType = context.contentResolver.getType(uri)
+            val fileName = getFileName(context.contentResolver, uri)
+
+            Card(
+                modifier = Modifier
+                    .size(64.dp) // 缩略图大小
+            ) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (mimeType?.startsWith("image/") == true) {
+                        AsyncImage(
+                            model = uri,
+                            contentDescription = fileName,
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
+                        )
+                    } else {
+                        // 对于非图片文件，显示通用文件图标和文件名
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center,
+                            modifier = Modifier.fillMaxSize()
+                        ) {
+                            Icon(Icons.Default.Description, contentDescription = "File") // 通用文件图标
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = fileName ?: "File",
+                                style = MaterialTheme.typography.labelSmall,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// 辅助函数：从 Uri 获取文件名
+private fun getFileName(contentResolver: ContentResolver, uri: Uri): String? {
+    var name: String? = null
+    contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+        if (cursor.moveToFirst()) {
+            val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+            if (nameIndex != -1) {
+                name = cursor.getString(nameIndex)
+            }
+        }
+    }
+    return name
 }

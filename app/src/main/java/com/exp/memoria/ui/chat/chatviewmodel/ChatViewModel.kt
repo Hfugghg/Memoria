@@ -5,6 +5,7 @@ import android.net.Uri // 导入 Uri 类
 import android.provider.OpenableColumns
 import android.util.Base64
 import android.util.Log
+import androidx.core.content.FileProvider
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -19,6 +20,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.File
 import java.util.*
 import javax.inject.Inject
 
@@ -76,11 +78,19 @@ class ChatViewModel @Inject constructor(
             )
 
             val chatMessages = memories.reversed().map { memory ->
+                val attachments = memory.id?.let { memoryId ->
+                    val messageFiles = memoryRepository.getMessageFilesForMemory(memoryId)
+                    messageFiles.mapNotNull { file ->
+                        convertBase64ToUri(file.fileContentBase64, file.fileName)
+                    }
+                } ?: emptyList()
+
                 ChatMessage(
                     id = UUID.nameUUIDFromBytes(memory.id.toString().toByteArray()),
                     text = memory.text,
                     isFromUser = memory.sender == "user",
-                    memoryId = memory.id
+                    memoryId = memory.id,
+                    attachments = attachments
                 )
             }
             Log.d("ChatViewModel", "[诊断] 转换后，准备将 ${chatMessages.size} 条新消息添加到UI。")
@@ -191,7 +201,8 @@ class ChatViewModel @Inject constructor(
         val userMessage = ChatMessage(
             id = UUID.randomUUID(),
             text = query,
-            isFromUser = true
+            isFromUser = true,
+            attachments = currentUiState.selectedFiles
         )
 
         _uiState.update { currentState ->
@@ -275,6 +286,18 @@ class ChatViewModel @Inject constructor(
                 Log.e("ChatViewModel", "无法将URI转换为附件: $uri", e)
                 null
             }
+        }
+    }
+
+    private suspend fun convertBase64ToUri(base64Data: String, fileName: String): Uri? = withContext(Dispatchers.IO) {
+        try {
+            val file = File(application.cacheDir, fileName)
+            val decodedBytes = Base64.decode(base64Data, Base64.NO_WRAP)
+            file.writeBytes(decodedBytes)
+            FileProvider.getUriForFile(application, "${application.packageName}.provider", file)
+        } catch (e: Exception) {
+            Log.e("ChatViewModel", "无法将Base64转换为URI: $fileName", e)
+            null
         }
     }
 }

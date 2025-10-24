@@ -140,4 +140,7 @@ dependencies {
 
     // Markdown
     implementation("com.github.jeziellago:compose-markdown:0.5.7")
+
+    // Coil (图片加载)
+    implementation("io.coil-kt:coil-compose:2.7.0")
 }
