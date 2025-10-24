@@ -43,7 +43,8 @@ fun MessageBubble(
     onEdit: () -> Unit,
     onResay: () -> Unit,
     onConfirmEdit: () -> Unit,
-    onCancelEdit: () -> Unit
+    onCancelEdit: () -> Unit,
+    onAttachmentLongPress: (Uri) -> Unit // 新增参数
 ) {
     val horizontalArrangement = if (message.isFromUser) Arrangement.End else Arrangement.Start
     Column(
@@ -52,7 +53,11 @@ fun MessageBubble(
     ) {
         // 附件预览区域
         if (message.attachments.isNotEmpty()) {
-            AttachmentPreview(attachments = message.attachments, isFromUser = message.isFromUser)
+            AttachmentPreview(
+                attachments = message.attachments,
+                isFromUser = message.isFromUser,
+                onAttachmentLongPress = onAttachmentLongPress // 传递新增参数
+            )
         }
 
         Row(
@@ -134,7 +139,7 @@ fun MessageActionMenu(
 }
 
 @Composable
-fun AttachmentPreview(attachments: List<Uri>, isFromUser: Boolean) {
+fun AttachmentPreview(attachments: List<Uri>, isFromUser: Boolean, onAttachmentLongPress: (Uri) -> Unit) {
     val context = LocalContext.current
     val horizontalArrangement = if (isFromUser) Arrangement.End else Arrangement.Start
 
@@ -152,6 +157,9 @@ fun AttachmentPreview(attachments: List<Uri>, isFromUser: Boolean) {
             Card(
                 modifier = Modifier
                     .size(64.dp) // 缩略图大小
+                    .pointerInput(uri) { // 为每个附件添加长按手势
+                        detectTapGestures(onLongPress = { onAttachmentLongPress(uri) })
+                    }
             ) {
                 Box(
                     modifier = Modifier.fillMaxSize(),

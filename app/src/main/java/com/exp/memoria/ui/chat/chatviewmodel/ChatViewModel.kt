@@ -9,6 +9,7 @@ import androidx.core.content.FileProvider
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.exp.memoria.data.local.entity.MessageFile
 import com.exp.memoria.data.model.FileAttachment
 import com.exp.memoria.data.repository.MemoryRepository
 import com.exp.memoria.data.repository.SettingsRepository
@@ -261,6 +262,44 @@ class ChatViewModel @Inject constructor(
             }
             Log.d("ChatViewModel", "已添加文件 URI: $it")
         }
+    }
+
+    fun deleteAttachment(messageId: UUID, uri: Uri) {
+        viewModelScope.launch {
+            val message = _uiState.value.messages.find { it.id == messageId } ?: return@launch
+            val memoryId = message.memoryId ?: return@launch
+
+            val fileName = getFileNameFromUri(uri)
+            val files = memoryRepository.getMessageFilesForMemory(memoryId)
+            val fileToDelete = files.find { it.fileName == fileName }
+
+            fileToDelete?.let {
+                memoryRepository.deleteMessageFile(it)
+                _uiState.update { currentState ->
+                    val updatedMessages = currentState.messages.map { msg ->
+                        if (msg.id == messageId) {
+                            msg.copy(attachments = msg.attachments.filter { it != uri })
+                        } else {
+                            msg
+                        }
+                    }
+                    currentState.copy(messages = updatedMessages)
+                }
+            }
+        }
+    }
+
+    private fun getFileNameFromUri(uri: Uri): String? {
+        var name: String? = null
+        application.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+            if (cursor.moveToFirst()) {
+                val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                if (nameIndex != -1) {
+                    name = cursor.getString(nameIndex)
+                }
+            }
+        }
+        return name
     }
 
     private suspend fun convertUrisToAttachments(uris: List<Uri>): List<FileAttachment> = withContext(Dispatchers.IO) {

@@ -50,6 +50,7 @@ import javax.inject.Inject
  *    - `saveMessageFile(...)`: 保存一个与消息关联的文件。
  *    - `getMessageFilesForMemory(...)`: 获取与指定消息关联的所有文件。
  *    - `saveUserMemory(...)`: 保存用户消息。
+ *    - `deleteMessageFile(...)`: 删除一个与消息关联的文件。
  *
  * 关联:
  * - 它会注入 RawMemoryDao 和 CondensedMemoryDao。
@@ -208,6 +209,13 @@ interface MemoryRepository {
      * @return 插入的用户消息ID。
      */
     suspend fun saveUserMemory(query: String, conversationId: String): Long
+
+    /**
+     * 删除一个与消息关联的文件。
+     *
+     * @param file 要删除的MessageFile对象。
+     */
+    suspend fun deleteMessageFile(file: MessageFile)
 }
 
 class MemoryRepositoryImpl @Inject constructor(
@@ -459,7 +467,7 @@ class MemoryRepositoryImpl @Inject constructor(
     override suspend fun updateMemoryText(memoryId: Long, newText: String) {
         rawMemoryDao.updateTextById(memoryId, newText)
     }
-
+
     override suspend fun deleteFrom(conversationId: String, id: Long) {
         rawMemoryDao.deleteFrom(conversationId, id)
         condensedMemoryDao.deleteFrom(conversationId, id)
@@ -472,5 +480,9 @@ class MemoryRepositoryImpl @Inject constructor(
 
     override suspend fun getMessageFilesForMemory(rawMemoryId: Long): List<MessageFile> {
         return messageFileDao.getFilesForMemory(rawMemoryId)
+    }
+
+    override suspend fun deleteMessageFile(file: MessageFile) {
+        messageFileDao.delete(file)
     }
 }
