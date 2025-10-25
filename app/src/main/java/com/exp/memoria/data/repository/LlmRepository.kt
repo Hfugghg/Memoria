@@ -2,7 +2,6 @@ package com.exp.memoria.data.repository
 
 import com.exp.memoria.data.remote.api.ModelDetail
 import com.exp.memoria.data.remote.dto.ChatContent
-import com.exp.memoria.data.model.FileAttachment // 修正导入路径
 import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -47,7 +46,6 @@ class LlmRepository @Inject constructor(
      * @param systemInstruction (可选) 指导模型行为的系统指令。
      * @param responseSchema (可选) 定义期望响应格式的 JSON Schema。
      * @param isStreaming 是否开启流式输出。默认为 `false` (非流式)。
-     * @param attachments 要附加到用户最新消息的文件列表。
      * @return 一个 `Flow<ChatChunkResult>`，用于接收来自 LLM 的文本回复片段或错误。
      * 如果 `isStreaming` 为 `false`，则 `Flow` 只会发出一个完整的 `Success` 或 `Error`。
      */
@@ -55,10 +53,9 @@ class LlmRepository @Inject constructor(
         history: List<ChatContent>,
         systemInstruction: String?,
         responseSchema: String?,
-        isStreaming: Boolean = false,
-        attachments: List<FileAttachment> = emptyList()
+        isStreaming: Boolean = false
     ): Flow<ChatChunkResult> {
-        return chatService.chatResponse(history, systemInstruction, responseSchema, isStreaming, attachments)
+        return chatService.chatResponse(history, systemInstruction, responseSchema, isStreaming)
     }
 
     /**

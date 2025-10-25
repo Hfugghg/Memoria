@@ -171,11 +171,13 @@ fun ChatScreen(
         },
         bottomBar = {
             ChatInputBar(
-                onSendMessage = { viewModel.sendMessage(it) },
+                onSendMessage = { text, attachments -> viewModel.sendMessage(text, attachments) },
                 isLoading = uiState.isLoading,
                 tokensCount = totalTokenCount, // 传递 totalTokenCount
                 onImagePickerClick = { imagePickerLauncher.launch("image/*") },
-                onFilePickerClick = { filePickerLauncher.launch("*/*") }
+                onFilePickerClick = { filePickerLauncher.launch("*/*") },
+                attachments = uiState.selectedFiles,
+                onRemoveAttachment = viewModel::removeAttachment
             )
         }
     ) { paddingValues ->

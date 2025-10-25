@@ -1,7 +1,7 @@
 package com.exp.memoria.ui.chat.chatviewmodel
 
 import android.app.Application
-import android.net.Uri // 导入 Uri 类
+import android.net.Uri
 import android.provider.OpenableColumns
 import android.util.Base64
 import android.util.Log
@@ -9,7 +9,6 @@ import androidx.core.content.FileProvider
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.exp.memoria.data.local.entity.MessageFile
 import com.exp.memoria.data.model.FileAttachment
 import com.exp.memoria.data.repository.MemoryRepository
 import com.exp.memoria.data.repository.SettingsRepository
@@ -178,10 +177,18 @@ class ChatViewModel @Inject constructor(
                     }
 
                     Log.d("ChatViewModel", "regenerateResponse: 重新发送用户消息: ${userMessage.text}")
+
+                    // 修复：在重说时，也应包含原始用户消息的附件
+                    val attachmentsForResay = if (userMessage.attachments.isNotEmpty()) {
+                        convertUrisToAttachments(userMessage.attachments)
+                    } else {
+                        emptyList()
+                    }
+
                     responseHandler.generateAiResponse(
-                        queryForLlm = null,
+                        queryForLlm = userMessage.text.ifBlank { null }, // 修复：如果文本为空，传递 null
                         userQueryForSaving = userMessage.text,
-                        attachments = emptyList()
+                        attachments = attachmentsForResay // 修复：传递原始用户消息的附件
                     )
                 } else {
                     Log.w(
@@ -195,21 +202,21 @@ class ChatViewModel @Inject constructor(
         }
     }
 
-    fun sendMessage(query: String) {
-        val currentUiState = _uiState.value
-        if (query.isBlank() && currentUiState.selectedFiles.isEmpty()) return
+    fun sendMessage(query: String, attachments: List<Uri>) {
+        if (query.isBlank() && attachments.isEmpty()) return
 
         val userMessage = ChatMessage(
             id = UUID.randomUUID(),
             text = query,
             isFromUser = true,
-            attachments = currentUiState.selectedFiles
+            attachments = attachments
         )
 
         _uiState.update { currentState ->
             currentState.copy(
                 messages = currentState.messages + userMessage,
-                isLoading = true
+                isLoading = true,
+                selectedFiles = emptyList() // 清空附件预览
             )
         }
 
@@ -217,24 +224,21 @@ class ChatViewModel @Inject constructor(
 
         viewModelScope.launch {
             // 1. 将URI转换为附件
-            val attachments = if (currentUiState.selectedFiles.isNotEmpty()) {
-                convertUrisToAttachments(currentUiState.selectedFiles)
+            val fileAttachments = if (userMessage.attachments.isNotEmpty()) {
+                convertUrisToAttachments(userMessage.attachments)
             } else {
                 emptyList()
             }
 
-            // 2. 准备用于保存到数据库的用户消息文本 (核心修复点：不再附加文件名)
+            // 2. 准备用于保存到数据库的用户消息文本
             val userQueryForSaving = query
 
             // 3. 调用 responseHandler 处理响应生成和数据保存
             responseHandler.generateAiResponse(
-                queryForLlm = query,
-                userQueryForSaving = userQueryForSaving, // 使用原始查询文本
-                attachments = attachments
+                queryForLlm = query.ifBlank { null }, // 修复：如果文本为空，传递 null
+                userQueryForSaving = userQueryForSaving,
+                attachments = fileAttachments
             )
-
-            // 4. 发送成功后，清空selectedFiles列表
-            _uiState.update { it.copy(selectedFiles = emptyList()) }
         }
     }
 
@@ -262,6 +266,13 @@ class ChatViewModel @Inject constructor(
             }
             Log.d("ChatViewModel", "已添加文件 URI: $it")
         }
+    }
+
+    fun removeAttachment(uri: Uri) {
+        _uiState.update { currentState ->
+            currentState.copy(selectedFiles = currentState.selectedFiles - uri)
+        }
+        Log.d("ChatViewModel", "已移除附件 URI: $uri")
     }
 
     fun deleteAttachment(messageId: UUID, uri: Uri) {
