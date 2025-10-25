@@ -70,20 +70,27 @@ class GetChatResponseUseCase @Inject constructor(
             )
         }.toMutableList()
 
-        // 3. 将当前用户输入（文本和附件）添加到历史记录中
-        val currentUserParts = mutableListOf<Part>()
-        if (!query.isNullOrBlank()) {
-            currentUserParts.add(Part(text = query))
-        }
-        attachments.forEach { attachment ->
-            currentUserParts.add(
-                Part(inlineData = InlineData(mimeType = attachment.fileType ?: "application/octet-stream", data = attachment.base64Data))
-            )
+        // 核心修复：仅当 query 不为 null 时，才添加新的用户消息。
+        // 这可以防止在“重说”场景下（此时调用者应传递 null）重复添加用户消息。
+        if (query != null) {
+            val currentUserParts = mutableListOf<Part>()
+            if (query.isNotBlank()) {
+                currentUserParts.add(Part(text = query))
+            }
+            attachments.forEach { attachment ->
+                currentUserParts.add(
+                    Part(inlineData = InlineData(mimeType = attachment.fileType ?: "application/octet-stream", data = attachment.base64Data))
+                )
+            }
+
+            if (currentUserParts.isNotEmpty()) {
+                history.add(ChatContent(role = "user", parts = currentUserParts))
+                Log.d("GetChatResponseUseCase", "[诊断] 已将包含 ${currentUserParts.size} 个部分的新用户消息添加到历史记录中。")
+            }
+        } else {
+            Log.d("GetChatResponseUseCase", "[诊断] query 为 null，跳过添加新用户消息。这是“重说”的预期行为。")
         }
 
-        if (currentUserParts.isNotEmpty()) {
-            history.add(ChatContent(role = "user", parts = currentUserParts))
-        }
 
         // 4. 获取对话的 header，从中提取 systemInstruction 和 responseSchema
         val conversationHeader = memoryRepository.getConversationHeaderById(conversationId)

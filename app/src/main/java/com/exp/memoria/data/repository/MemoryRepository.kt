@@ -40,4 +40,5 @@ import kotlinx.coroutines.flow.Flow
  * - 它会注入 RawMemoryDao 和 CondensedMemoryDao。
  * - GetChatResponseUseCase 会注入并使用这个Repository来管理记忆数据。
  */
-interface MemoryRepository : FileAttachmentRepository, MessageRepository, ConversationRepository
+interface MemoryRepository : FileAttachmentRepository, MessageRepository, ConversationRepository {
+}

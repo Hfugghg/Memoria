@@ -165,6 +165,7 @@ class ChatViewModel @Inject constructor(
                     Log.d("ChatViewModel", "regenerateResponse: 数据库删除完成")
 
                     _uiState.update { currentState ->
+                        // 修复：明确地创建一个新的列表，而不是一个视图，以避免UI刷新时出现意外的重复项
                         val messagesAfterDeletion = currentState.messages.take(aiMessageIndex)
                         Log.d(
                             "ChatViewModel",
@@ -186,9 +187,10 @@ class ChatViewModel @Inject constructor(
                     }
 
                     responseHandler.generateAiResponse(
-                        queryForLlm = userMessage.text.ifBlank { null }, // 修复：如果文本为空，传递 null
-                        userQueryForSaving = userMessage.text,
-                        attachments = attachmentsForResay // 修复：传递原始用户消息的附件
+                        queryForLlm = null, // 修复：重说时不再传递用户消息文本，避免LLM请求体重复
+                        userQueryForSaving = "",
+                        attachments = attachmentsForResay, // 修复：传递原始用户消息的附件
+                        isNewMessage = false // 修复：明确指出这不是一个新消息
                     )
                 } else {
                     Log.w(
@@ -231,13 +233,20 @@ class ChatViewModel @Inject constructor(
             }
 
             // 2. 准备用于保存到数据库的用户消息文本
-            val userQueryForSaving = query
+            // 修复：如果用户只发送附件而没有文本，我们仍然需要一个“消息”条目来容纳这些附件。
+            // 因此，如果查询为空但附件不为空，我们将保存一个空格作为消息文本。
+            val userQueryForSaving = if (query.isBlank() && attachments.isNotEmpty()) {
+                " "
+            } else {
+                query
+            }
 
             // 3. 调用 responseHandler 处理响应生成和数据保存
             responseHandler.generateAiResponse(
                 queryForLlm = query.ifBlank { null }, // 修复：如果文本为空，传递 null
                 userQueryForSaving = userQueryForSaving,
-                attachments = fileAttachments
+                attachments = fileAttachments,
+                isNewMessage = true // 修复：明确指出这是一个新消息
             )
         }
     }
@@ -280,12 +289,19 @@ class ChatViewModel @Inject constructor(
             val message = _uiState.value.messages.find { it.id == messageId } ?: return@launch
             val memoryId = message.memoryId ?: return@launch
 
-            val fileName = getFileNameFromUri(uri)
+            val fileName = getFileNameFromUri(uri) ?: return@launch
             val files = memoryRepository.getMessageFilesForMemory(memoryId)
-            val fileToDelete = files.find { it.fileName == fileName }
+            val fileToDelete = files.find { File(it.fileName).name == fileName }
 
             fileToDelete?.let {
                 memoryRepository.deleteMessageFile(it)
+
+                // Also delete the cached file
+                val cachedFile = File(application.cacheDir, it.fileName)
+                if (cachedFile.exists()) {
+                    cachedFile.deleteRecursively()
+                }
+
                 _uiState.update { currentState ->
                     val updatedMessages = currentState.messages.map { msg ->
                         if (msg.id == messageId) {
