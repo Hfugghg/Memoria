@@ -1,4 +1,4 @@
-package com.exp.memoria.data.repository.llmrepository
+package com.exp.memoria.data.repository
 
 import com.exp.memoria.data.remote.api.ModelDetail
 

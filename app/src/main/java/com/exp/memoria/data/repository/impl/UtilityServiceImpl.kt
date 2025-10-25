@@ -1,9 +1,11 @@
-package com.exp.memoria.data.repository.llmrepository
+package com.exp.memoria.data.repository.impl
 
 import android.util.Log
 import com.exp.memoria.data.remote.api.LlmApiService
 import com.exp.memoria.data.remote.api.ModelDetail
 import com.exp.memoria.data.remote.dto.*
+import com.exp.memoria.data.repository.LlmRepositoryHelpers
+import com.exp.memoria.data.repository.UtilityService
 import kotlinx.serialization.encodeToString
 import javax.inject.Inject
 import javax.inject.Singleton

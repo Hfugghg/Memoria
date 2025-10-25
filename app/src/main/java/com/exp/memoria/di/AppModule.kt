@@ -11,7 +11,13 @@ import com.exp.memoria.data.local.dao.MessageFileDao
 import com.exp.memoria.data.local.dao.RawMemoryDao
 import com.exp.memoria.data.remote.api.LlmApiService
 import com.exp.memoria.data.repository.*
-import com.exp.memoria.data.repository.llmrepository.*
+import com.exp.memoria.data.repository.impl.ChatServiceImpl
+import com.exp.memoria.data.repository.impl.ConversationRepositoryImpl
+import com.exp.memoria.data.repository.impl.FileAttachmentRepositoryImpl
+import com.exp.memoria.data.repository.impl.MemoryRepositoryImpl
+import com.exp.memoria.data.repository.impl.MessageRepositoryImpl
+import com.exp.memoria.data.repository.impl.SettingsRepositoryImpl
+import com.exp.memoria.data.repository.impl.UtilityServiceImpl
 import com.exp.memoria.domain.usecase.GetChatResponseUseCase
 import com.exp.memoria.domain.usecase.ProcessMemoryUseCase
 import dagger.Module

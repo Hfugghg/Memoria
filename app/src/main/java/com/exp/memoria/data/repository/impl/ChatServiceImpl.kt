@@ -1,4 +1,4 @@
-package com.exp.memoria.data.repository.llmrepository
+package com.exp.memoria.data.repository.impl
 
 import android.util.Log
 import com.exp.memoria.data.remote.api.LlmApiService
@@ -8,8 +8,10 @@ import com.exp.memoria.data.remote.dto.LlmRequest
 import com.exp.memoria.data.remote.dto.LlmResponse
 import com.exp.memoria.data.remote.dto.Part
 import com.exp.memoria.data.remote.dto.SystemInstruction
-import com.exp.memoria.data.repository.ChatChunkResult
 import com.exp.memoria.data.model.FileAttachment
+import com.exp.memoria.data.repository.ChatChunkResult
+import com.exp.memoria.data.repository.ChatService
+import com.exp.memoria.data.repository.LlmRepositoryHelpers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.serialization.encodeToString

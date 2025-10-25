@@ -1,12 +1,21 @@
-package com.exp.memoria.data.repository
+package com.exp.memoria.data.repository.impl
 
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.*
+import com.exp.memoria.data.repository.SettingsRepository
 import com.exp.memoria.ui.settings.Settings
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
 
+/**
+ * [SettingsRepository] 的实现，负责使用 [DataStore] 持久化和读取应用设置。
+ *
+ * 此仓库将所有设置项作为一个 [Flow] of [Settings] 暴露，以便 UI 层可以响应式地观察变化。
+ * 它还提供了挂起函数来更新每个单独的设置项。
+ *
+ * @property dataStore 用于存储偏好设置的 DataStore 实例。
+ */
 @Singleton
 class SettingsRepositoryImpl @Inject constructor(
     private val dataStore: DataStore<Preferences>

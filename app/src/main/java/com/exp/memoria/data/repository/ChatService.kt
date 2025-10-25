@@ -1,6 +1,5 @@
-package com.exp.memoria.data.repository.llmrepository
+package com.exp.memoria.data.repository
 
-import com.exp.memoria.data.repository.ChatChunkResult
 import com.exp.memoria.data.remote.dto.ChatContent
 import com.exp.memoria.data.model.FileAttachment
 import kotlinx.coroutines.flow.Flow
