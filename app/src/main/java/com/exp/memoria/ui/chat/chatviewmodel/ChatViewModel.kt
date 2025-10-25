@@ -1,10 +1,11 @@
 package com.exp.memoria.ui.chat.chatviewmodel
 
 import android.app.Application
-import android.net.Uri // 导入 Uri 类
+import android.net.Uri
 import android.provider.OpenableColumns
 import android.util.Base64
 import android.util.Log
+import androidx.core.content.FileProvider
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -19,6 +20,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.File
 import java.util.*
 import javax.inject.Inject
 
@@ -76,11 +78,19 @@ class ChatViewModel @Inject constructor(
             )
 
             val chatMessages = memories.reversed().map { memory ->
+                val attachments = memory.id?.let { memoryId ->
+                    val messageFiles = memoryRepository.getMessageFilesForMemory(memoryId)
+                    messageFiles.mapNotNull { file ->
+                        convertBase64ToUri(file.fileContentBase64, file.fileName)
+                    }
+                } ?: emptyList()
+
                 ChatMessage(
                     id = UUID.nameUUIDFromBytes(memory.id.toString().toByteArray()),
                     text = memory.text,
                     isFromUser = memory.sender == "user",
-                    memoryId = memory.id
+                    memoryId = memory.id,
+                    attachments = attachments
                 )
             }
             Log.d("ChatViewModel", "[诊断] 转换后，准备将 ${chatMessages.size} 条新消息添加到UI。")
@@ -155,6 +165,7 @@ class ChatViewModel @Inject constructor(
                     Log.d("ChatViewModel", "regenerateResponse: 数据库删除完成")
 
                     _uiState.update { currentState ->
+                        // 修复：明确地创建一个新的列表，而不是一个视图，以避免UI刷新时出现意外的重复项
                         val messagesAfterDeletion = currentState.messages.take(aiMessageIndex)
                         Log.d(
                             "ChatViewModel",
@@ -167,10 +178,19 @@ class ChatViewModel @Inject constructor(
                     }
 
                     Log.d("ChatViewModel", "regenerateResponse: 重新发送用户消息: ${userMessage.text}")
+
+                    // 修复：在重说时，也应包含原始用户消息的附件
+                    val attachmentsForResay = if (userMessage.attachments.isNotEmpty()) {
+                        convertUrisToAttachments(userMessage.attachments)
+                    } else {
+                        emptyList()
+                    }
+
                     responseHandler.generateAiResponse(
-                        queryForLlm = null,
-                        userQueryForSaving = userMessage.text,
-                        attachments = emptyList()
+                        queryForLlm = null, // 修复：重说时不再传递用户消息文本，避免LLM请求体重复
+                        userQueryForSaving = "",
+                        attachments = attachmentsForResay, // 修复：传递原始用户消息的附件
+                        isNewMessage = false // 修复：明确指出这不是一个新消息
                     )
                 } else {
                     Log.w(
@@ -184,20 +204,21 @@ class ChatViewModel @Inject constructor(
         }
     }
 
-    fun sendMessage(query: String) {
-        val currentUiState = _uiState.value
-        if (query.isBlank() && currentUiState.selectedFiles.isEmpty()) return
+    fun sendMessage(query: String, attachments: List<Uri>) {
+        if (query.isBlank() && attachments.isEmpty()) return
 
         val userMessage = ChatMessage(
             id = UUID.randomUUID(),
             text = query,
-            isFromUser = true
+            isFromUser = true,
+            attachments = attachments
         )
 
         _uiState.update { currentState ->
             currentState.copy(
                 messages = currentState.messages + userMessage,
-                isLoading = true
+                isLoading = true,
+                selectedFiles = emptyList() // 清空附件预览
             )
         }
 
@@ -205,24 +226,28 @@ class ChatViewModel @Inject constructor(
 
         viewModelScope.launch {
             // 1. 将URI转换为附件
-            val attachments = if (currentUiState.selectedFiles.isNotEmpty()) {
-                convertUrisToAttachments(currentUiState.selectedFiles)
+            val fileAttachments = if (userMessage.attachments.isNotEmpty()) {
+                convertUrisToAttachments(userMessage.attachments)
             } else {
                 emptyList()
             }
 
-            // 2. 准备用于保存到数据库的用户消息文本 (核心修复点：不再附加文件名)
-            val userQueryForSaving = query
+            // 2. 准备用于保存到数据库的用户消息文本
+            // 修复：如果用户只发送附件而没有文本，我们仍然需要一个“消息”条目来容纳这些附件。
+            // 因此，如果查询为空但附件不为空，我们将保存一个空格作为消息文本。
+            val userQueryForSaving = if (query.isBlank() && attachments.isNotEmpty()) {
+                " "
+            } else {
+                query
+            }
 
             // 3. 调用 responseHandler 处理响应生成和数据保存
             responseHandler.generateAiResponse(
-                queryForLlm = query,
-                userQueryForSaving = userQueryForSaving, // 使用原始查询文本
-                attachments = attachments
+                queryForLlm = query.ifBlank { null }, // 修复：如果文本为空，传递 null
+                userQueryForSaving = userQueryForSaving,
+                attachments = fileAttachments,
+                isNewMessage = true // 修复：明确指出这是一个新消息
             )
-
-            // 4. 发送成功后，清空selectedFiles列表
-            _uiState.update { it.copy(selectedFiles = emptyList()) }
         }
     }
 
@@ -252,6 +277,58 @@ class ChatViewModel @Inject constructor(
         }
     }
 
+    fun removeAttachment(uri: Uri) {
+        _uiState.update { currentState ->
+            currentState.copy(selectedFiles = currentState.selectedFiles - uri)
+        }
+        Log.d("ChatViewModel", "已移除附件 URI: $uri")
+    }
+
+    fun deleteAttachment(messageId: UUID, uri: Uri) {
+        viewModelScope.launch {
+            val message = _uiState.value.messages.find { it.id == messageId } ?: return@launch
+            val memoryId = message.memoryId ?: return@launch
+
+            val fileName = getFileNameFromUri(uri) ?: return@launch
+            val files = memoryRepository.getMessageFilesForMemory(memoryId)
+            val fileToDelete = files.find { File(it.fileName).name == fileName }
+
+            fileToDelete?.let {
+                memoryRepository.deleteMessageFile(it)
+
+                // Also delete the cached file
+                val cachedFile = File(application.cacheDir, it.fileName)
+                if (cachedFile.exists()) {
+                    cachedFile.deleteRecursively()
+                }
+
+                _uiState.update { currentState ->
+                    val updatedMessages = currentState.messages.map { msg ->
+                        if (msg.id == messageId) {
+                            msg.copy(attachments = msg.attachments.filter { it != uri })
+                        } else {
+                            msg
+                        }
+                    }
+                    currentState.copy(messages = updatedMessages)
+                }
+            }
+        }
+    }
+
+    private fun getFileNameFromUri(uri: Uri): String? {
+        var name: String? = null
+        application.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+            if (cursor.moveToFirst()) {
+                val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                if (nameIndex != -1) {
+                    name = cursor.getString(nameIndex)
+                }
+            }
+        }
+        return name
+    }
+
     private suspend fun convertUrisToAttachments(uris: List<Uri>): List<FileAttachment> = withContext(Dispatchers.IO) {
         uris.mapNotNull { uri ->
             try {
@@ -275,6 +352,18 @@ class ChatViewModel @Inject constructor(
                 Log.e("ChatViewModel", "无法将URI转换为附件: $uri", e)
                 null
             }
+        }
+    }
+
+    private suspend fun convertBase64ToUri(base64Data: String, fileName: String): Uri? = withContext(Dispatchers.IO) {
+        try {
+            val file = File(application.cacheDir, fileName)
+            val decodedBytes = Base64.decode(base64Data, Base64.NO_WRAP)
+            file.writeBytes(decodedBytes)
+            FileProvider.getUriForFile(application, "${application.packageName}.provider", file)
+        } catch (e: Exception) {
+            Log.e("ChatViewModel", "无法将Base64转换为URI: $fileName", e)
+            null
         }
     }
 }

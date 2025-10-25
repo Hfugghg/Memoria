@@ -92,6 +92,7 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
     implementation("androidx.compose.material:material-icons-extended")
+    implementation("com.google.android.material:material:1.13.0") // For Theme.MaterialComponents
     //testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -140,4 +141,7 @@ dependencies {
 
     // Markdown
     implementation("com.github.jeziellago:compose-markdown:0.5.7")
+
+    // Coil (图片加载)
+    implementation("io.coil-kt:coil-compose:2.7.0")
 }

@@ -1,13 +1,13 @@
 package com.exp.memoria.domain.usecase
 
 import android.util.Log
+import com.exp.memoria.data.model.FileAttachment
 import com.exp.memoria.data.remote.dto.ChatContent
 import com.exp.memoria.data.remote.dto.InlineData
 import com.exp.memoria.data.remote.dto.Part
 import com.exp.memoria.data.repository.ChatChunkResult
 import com.exp.memoria.data.repository.LlmRepository
 import com.exp.memoria.data.repository.MemoryRepository
-import com.exp.memoria.data.model.FileAttachment
 import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
 
@@ -56,7 +56,6 @@ class GetChatResponseUseCase @Inject constructor(
             val parts = mutableListOf(Part(text = memory.text))
 
             // 根据记忆ID获取其关联的所有附件文件
-            // 假设 RawMemory 有一个 'id' 属性，并且 MessageFile 有 'fileType' 和 'base64Data' 属性
             val memoryAttachments = memoryRepository.getMessageFilesForMemory(memory.id)
 
             // 将附件转换为 Part 并添加到列表中
@@ -71,11 +70,27 @@ class GetChatResponseUseCase @Inject constructor(
             )
         }.toMutableList()
 
-        // 3. 如果 query 不为空，则将其作为最新的一条“user”消息，添加到历史记录末尾
-        //    如果 query 为空，则表示是“重说”操作，此时历史记录中已包含用户消息，无需重复添加。
-        if (!query.isNullOrBlank()) {
-            history.add(ChatContent(role = "user", parts = listOf(Part(text = query))))
+        // 核心修复：仅当 query 不为 null 时，才添加新的用户消息。
+        // 这可以防止在“重说”场景下（此时调用者应传递 null）重复添加用户消息。
+        if (query != null) {
+            val currentUserParts = mutableListOf<Part>()
+            if (query.isNotBlank()) {
+                currentUserParts.add(Part(text = query))
+            }
+            attachments.forEach { attachment ->
+                currentUserParts.add(
+                    Part(inlineData = InlineData(mimeType = attachment.fileType ?: "application/octet-stream", data = attachment.base64Data))
+                )
+            }
+
+            if (currentUserParts.isNotEmpty()) {
+                history.add(ChatContent(role = "user", parts = currentUserParts))
+                Log.d("GetChatResponseUseCase", "[诊断] 已将包含 ${currentUserParts.size} 个部分的新用户消息添加到历史记录中。")
+            }
+        } else {
+            Log.d("GetChatResponseUseCase", "[诊断] query 为 null，跳过添加新用户消息。这是“重说”的预期行为。")
         }
+
 
         // 4. 获取对话的 header，从中提取 systemInstruction 和 responseSchema
         val conversationHeader = memoryRepository.getConversationHeaderById(conversationId)
@@ -83,6 +98,6 @@ class GetChatResponseUseCase @Inject constructor(
         val responseSchema = conversationHeader?.responseSchema
 
         // 5. 调用LLM仓库，这将正确返回 Flow<ChatChunkResult>，并传入 systemInstruction 和 responseSchema
-        return llmRepository.chatResponse(history, systemInstruction, responseSchema, isStreaming, attachments)
+        return llmRepository.chatResponse(history, systemInstruction, responseSchema, isStreaming)
     }
 }

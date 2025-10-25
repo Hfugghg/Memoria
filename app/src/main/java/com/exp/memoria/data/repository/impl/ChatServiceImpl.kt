@@ -1,15 +1,14 @@
-package com.exp.memoria.data.repository.llmrepository
+package com.exp.memoria.data.repository.impl
 
 import android.util.Log
 import com.exp.memoria.data.remote.api.LlmApiService
 import com.exp.memoria.data.remote.dto.ChatContent
-import com.exp.memoria.data.remote.dto.InlineData
 import com.exp.memoria.data.remote.dto.LlmRequest
 import com.exp.memoria.data.remote.dto.LlmResponse
-import com.exp.memoria.data.remote.dto.Part
 import com.exp.memoria.data.remote.dto.SystemInstruction
 import com.exp.memoria.data.repository.ChatChunkResult
-import com.exp.memoria.data.model.FileAttachment
+import com.exp.memoria.data.repository.ChatService
+import com.exp.memoria.data.repository.LlmRepositoryHelpers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.serialization.encodeToString
@@ -33,7 +32,6 @@ class ChatServiceImpl @Inject constructor(
      * @param systemInstruction (可选) 指导模型行为的系统指令。
      * @param responseSchema (可选) 定义期望响应格式的 JSON Schema。
      * @param isStreaming 是否开启流式输出。默认为 `false` (非流式)。
-     * @param attachments 要附加到用户最新消息的文件列表。
      * @return 一个 `Flow<ChatChunkResult>`，用于接收来自 LLM 的文本回复片段或错误。
      * 如果 `isStreaming` 为 `false`，则 `Flow` 只会发出一个完整的 `Success` 或 `Error`。
      */
@@ -41,8 +39,7 @@ class ChatServiceImpl @Inject constructor(
         history: List<ChatContent>,
         systemInstruction: String?,
         responseSchema: String?,
-        isStreaming: Boolean,
-        attachments: List<FileAttachment>
+        isStreaming: Boolean
     ): Flow<ChatChunkResult> = flow {
         // 使用重构后的函数获取组件
         val components = helpers.buildLlmRequestComponents(responseSchema)
@@ -60,31 +57,8 @@ class ChatServiceImpl @Inject constructor(
             null
         }
 
-        // 创建一个可变的历史记录副本，以便在需要时添加附件。
-        val processedHistory = history.toMutableList()
-
-        // 如果有附件，并且历史记录不为空，则将附件添加到最新的用户消息中。
-        if (attachments.isNotEmpty() && processedHistory.isNotEmpty()) {
-            val lastUserContentIndex = processedHistory.indexOfLast { it.role == "user" }
-
-            if (lastUserContentIndex != -1) {
-                val lastUserContent = processedHistory[lastUserContentIndex]
-
-                // 将附件转换为 API 所需的 Part 格式。
-                val attachmentParts = attachments.map { attachment ->
-                    Part(inlineData = InlineData(mimeType = attachment.fileType ?: "application/octet-stream", data = attachment.base64Data))
-                }
-
-                // 将新的附件部分与该消息已有的部分合并。
-                val updatedParts = lastUserContent.parts + attachmentParts
-
-                // 使用更新后的部分列表替换掉原来的消息。
-                processedHistory[lastUserContentIndex] = lastUserContent.copy(parts = updatedParts)
-            }
-        }
-
         val request = LlmRequest(
-            contents = processedHistory,
+            contents = history,
             systemInstruction = systemInstructionObject,
             generationConfig = generationConfig,
             safetySettings = safetySettings

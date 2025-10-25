@@ -34,16 +34,17 @@ class ChatResponseHandler(
     suspend fun generateAiResponse(
         queryForLlm: String?,
         userQueryForSaving: String,
-        attachments: List<FileAttachment>
+        attachments: List<FileAttachment>,
+        isNewMessage: Boolean // 修复：添加一个明确的标志来区分新消息和重说
     ) {
         _totalTokenCount.value = null // 重置令牌计数，因为这是一个新的请求
         val isStreaming = settingsRepository.settingsFlow.first().isStreamingEnabled
 
         try {
             if (isStreaming) {
-                streamResponse(queryForLlm, userQueryForSaving, attachments)
+                streamResponse(queryForLlm, userQueryForSaving, attachments, isNewMessage)
             } else {
-                nonStreamResponse(queryForLlm, userQueryForSaving, attachments)
+                nonStreamResponse(queryForLlm, userQueryForSaving, attachments, isNewMessage)
             }
         } catch (e: Exception) {
             _uiState.update { currentState ->
@@ -63,7 +64,8 @@ class ChatResponseHandler(
     private suspend fun streamResponse(
         queryForLlm: String?,
         userQueryForSaving: String,
-        attachments: List<FileAttachment>
+        attachments: List<FileAttachment>,
+        isNewMessage: Boolean // 修复：传递标志
     ) {
         Log.d(
             "ChatResponseHandler",
@@ -165,7 +167,8 @@ class ChatResponseHandler(
                     "ChatResponseHandler",
                     "streamResponse: 正在保存最终响应（${finalResponseText.length} 字符）到记忆中。"
                 )
-                if (queryForLlm != null) { // 新消息，保存用户查询和AI响应
+                // 修复：使用 isNewMessage 标志来决定调用哪个保存函数
+                if (isNewMessage) { // 新消息，保存用户查询和AI响应
                     memoryId = memoryRepository.saveNewMemory(userQueryForSaving, finalResponseText, conversationId, attachments)
                 } else { // 重说，只保存AI响应
                     memoryId =
@@ -174,7 +177,8 @@ class ChatResponseHandler(
                 Log.d("ChatResponseHandler", "streamResponse: 新记忆已保存。 ID: $memoryId")
             } else {
                 Log.w("ChatResponseHandler", "streamResponse: 发生错误或响应为空，保存空响应。错误: $uiErrorMessage")
-                if (queryForLlm != null) { // 新消息，保存用户查询和空AI响应
+                // 修复：使用 isNewMessage 标志来决定调用哪个保存函数
+                if (isNewMessage) { // 新消息，保存用户查询和空AI响应
                     memoryId = memoryRepository.saveNewMemory(userQueryForSaving, "", conversationId, attachments)
                 } else { // 重说，只保存空AI响应
                     memoryId = memoryRepository.saveOnlyAiResponse(userQueryForSaving, "", conversationId)
@@ -221,7 +225,8 @@ class ChatResponseHandler(
     private suspend fun nonStreamResponse(
         queryForLlm: String?,
         userQueryForSaving: String,
-        attachments: List<FileAttachment>
+        attachments: List<FileAttachment>,
+        isNewMessage: Boolean // 修复：传递标志
     ) {
         Log.d(
             "ChatResponseHandler",
@@ -244,7 +249,8 @@ class ChatResponseHandler(
                     val memoryId: Long
                     if (response.isNotEmpty()) {
                         Log.d("ChatResponseHandler", "nonStreamResponse: 为 conversationId: $conversationId 保存新内存")
-                        if (queryForLlm != null) { // 新消息，保存用户查询和AI响应
+                        // 修复：使用 isNewMessage 标志来决定调用哪个保存函数
+                        if (isNewMessage) { // 新消息，保存用户查询和AI响应
                             memoryId = memoryRepository.saveNewMemory(userQueryForSaving, response, conversationId, attachments)
                         } else { // 重说，只保存AI响应
                             memoryId = memoryRepository.saveOnlyAiResponse(userQueryForSaving, response, conversationId)
@@ -272,7 +278,8 @@ class ChatResponseHandler(
                     } else {
                         Log.w("ChatResponseHandler", "nonStreamResponse: 获取到的响应为空。")
                         // 保存空响应
-                        if (queryForLlm != null) { // 新消息，保存用户查询和空AI响应
+                        // 修复：使用 isNewMessage 标志来决定调用哪个保存函数
+                        if (isNewMessage) { // 新消息，保存用户查询和空AI响应
                             memoryId = memoryRepository.saveNewMemory(userQueryForSaving, "", conversationId, attachments)
                         } else { // 重说，只保存空AI响应
                             memoryId = memoryRepository.saveOnlyAiResponse(userQueryForSaving, "", conversationId)
@@ -296,7 +303,8 @@ class ChatResponseHandler(
                     Log.w("ChatResponseHandler", "nonStreamResponse: 收到错误: $errorMessage")
                     // 保存空响应
                     val memoryId: Long
-                    if (queryForLlm != null) { // 新消息，保存用户查询和空AI响应
+                    // 修复：使用 isNewMessage 标志来决定调用哪个保存函数
+                    if (isNewMessage) { // 新消息，保存用户查询和空AI响应
                         memoryId = memoryRepository.saveNewMemory(userQueryForSaving, "", conversationId, attachments)
                     } else { // 重说，只保存空AI响应
                         memoryId = memoryRepository.saveOnlyAiResponse(userQueryForSaving, "", conversationId)
@@ -319,7 +327,8 @@ class ChatResponseHandler(
             Log.e("ChatResponseHandler", "nonStreamResponse: 非流式响应过程中发生错误", e) // Log exceptions
             // 保存空响应
             val memoryId: Long
-            if (queryForLlm != null) { // 新消息，保存用户查询和空AI响应
+            // 修复：使用 isNewMessage 标志来决定调用哪个保存函数
+            if (isNewMessage) { // 新消息，保存用户查询和空AI响应
                 memoryId = memoryRepository.saveNewMemory(userQueryForSaving, "", conversationId, attachments)
             } else { // 重说，只保存空AI响应
                 memoryId = memoryRepository.saveOnlyAiResponse(userQueryForSaving, "", conversationId)

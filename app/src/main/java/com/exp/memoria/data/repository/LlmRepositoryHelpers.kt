@@ -1,8 +1,7 @@
-package com.exp.memoria.data.repository.llmrepository
+package com.exp.memoria.data.repository
 
 import com.exp.memoria.data.remote.dto.GenerationConfig
 import com.exp.memoria.data.remote.dto.SafetySetting
-import com.exp.memoria.data.repository.SettingsRepository
 import com.exp.memoria.ui.settings.HarmBlockThreshold
 import kotlinx.coroutines.flow.first
 import kotlinx.serialization.json.Json

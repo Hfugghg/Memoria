@@ -1,8 +1,6 @@
-package com.exp.memoria.data.repository.llmrepository
+package com.exp.memoria.data.repository
 
-import com.exp.memoria.data.repository.ChatChunkResult
 import com.exp.memoria.data.remote.dto.ChatContent
-import com.exp.memoria.data.model.FileAttachment
 import kotlinx.coroutines.flow.Flow
 
 interface ChatService {
@@ -10,7 +8,6 @@ interface ChatService {
         history: List<ChatContent>,
         systemInstruction: String?,
         responseSchema: String?,
-        isStreaming: Boolean = false,
-        attachments: List<FileAttachment> = emptyList()
+        isStreaming: Boolean = false
     ): Flow<ChatChunkResult>
 }
