@@ -154,6 +154,15 @@ class MemoryRepositoryImpl @Inject constructor(
     }
 
     /**
+     * 删除指定对话中的所有消息。
+     *
+     * @param conversationId 对话ID。
+     */
+    override suspend fun deleteAllMessagesInConversation(conversationId: String) {
+        messageRepository.deleteAllMessagesInConversation(conversationId)
+    }
+
+    /**
      * 保存用户记忆。
      *
      * @param query 用户查询文本。
@@ -199,6 +208,20 @@ class MemoryRepositoryImpl @Inject constructor(
      * @param conversationId 要删除的对话的 ID。
      */
     override suspend fun deleteConversation(conversationId: String) {
+        // 1. 获取该对话下的所有记忆，以便找到它们关联的文件
+        val memories = messageRepository.getAllRawMemoriesForConversation(conversationId)
+        for (memory in memories) {
+            // 2. 删除每个记忆所关联的所有文件
+            val files = fileAttachmentRepository.getMessageFilesForMemory(memory.id)
+            for (file in files) {
+                fileAttachmentRepository.deleteMessageFile(file)
+            }
+        }
+
+        // 3. 删除该对话下的所有消息（raw_memory, condensed_memory等）
+        messageRepository.deleteAllMessagesInConversation(conversationId)
+
+        // 4. 最后删除对话头
         conversationRepository.deleteConversation(conversationId)
     }
 

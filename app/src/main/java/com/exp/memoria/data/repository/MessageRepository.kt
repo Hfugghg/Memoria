@@ -91,4 +91,11 @@ interface MessageRepository {
      * @return 插入的用户消息ID。
      */
     suspend fun saveUserMemory(query: String, conversationId: String): Long
+
+    /**
+     * 删除指定对话中的所有消息。
+     *
+     * @param conversationId 对话ID。
+     */
+    suspend fun deleteAllMessagesInConversation(conversationId: String)
 }

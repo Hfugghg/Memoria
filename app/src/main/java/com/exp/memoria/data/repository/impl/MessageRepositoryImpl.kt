@@ -212,4 +212,14 @@ class MessageRepositoryImpl @Inject constructor(
         rawMemoryDao.deleteFrom(conversationId, id)
         condensedMemoryDao.deleteFrom(conversationId, id)
     }
+
+    /**
+     * 删除指定对话中的所有消息。
+     *
+     * @param conversationId 对话ID。
+     */
+    override suspend fun deleteAllMessagesInConversation(conversationId: String) {
+        rawMemoryDao.deleteAllInConversation(conversationId)
+        condensedMemoryDao.deleteAllInConversation(conversationId)
+    }
 }
