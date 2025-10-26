@@ -40,7 +40,7 @@ class ProcessMemoryUseCase @Inject constructor(
         // 1. 根据ID获取模型回复的记忆，如果找不到则直接返回
         val modelMemory = memoryRepository.getMemoryById(memoryId)
         if (modelMemory == null || modelMemory.sender != "model") {
-            Log.e("ProcessMemoryUseCase", "Memory with ID $memoryId not found or is not a model response.")
+            Log.e("ProcessMemoryUseCase", "根据ID: $memoryId 未找到记忆或该记忆不是模型的回应。")
             return
         }
 
@@ -55,7 +55,7 @@ class ProcessMemoryUseCase @Inject constructor(
             // 如果找不到匹配的用户查询，记录警告并仅使用模型回复
             Log.w(
                 "ProcessMemoryUseCase",
-                "Could not find a matching user query for memory ID $memoryId. Summarizing AI response only."
+                "无法为记忆ID: $memoryId 找到匹配的用户查询。将仅对AI的回应进行摘要。"
             )
             dialogue = "AI: ${modelMemory.text}"
         }
@@ -66,10 +66,22 @@ class ProcessMemoryUseCase @Inject constructor(
 
         // 5. 为拼接好的对话生成摘要
         val summary = llmRepository.getSummary(dialogue, responseSchema)
-        // 6. 为生成的摘要创建向量嵌入
-        val embedding = llmRepository.getEmbedding(summary)
+        Log.d("ProcessMemoryUseCase", "摘要生成成功: $summary")
+
+        // 6. 为生成的摘要创建向量嵌入，即使失败也要继续
+        val embedding = try {
+            Log.d("ProcessMemoryUseCase", "准备为摘要生成向量嵌入...")
+            val vector = llmRepository.getEmbedding(summary)
+            Log.d("ProcessMemoryUseCase", "向量嵌入生成成功，大小: ${vector.size}")
+            vector
+        } catch (e: Exception) {
+            Log.e("ProcessMemoryUseCase", "向量嵌入生成失败，将使用空向量。错误: ", e)
+            emptyList<Float>() // 返回一个空列表以继续流程
+        }
 
         // 7. 将处理好的摘要和向量更新到数据库
+        Log.d("ProcessMemoryUseCase", "即将更新数据库。Memory ID: $memoryId")
         memoryRepository.updateProcessedMemory(memoryId, summary, embedding)
+        Log.d("ProcessMemoryUseCase", "数据库更新调用完成。Memory ID: $memoryId")
     }
 }

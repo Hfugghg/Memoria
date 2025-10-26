@@ -61,7 +61,9 @@ class UtilityServiceImpl @Inject constructor(
         return try {
             val response = llmApiService.getSummary(modelId, apiKey, request)
             Log.d("UtilityServiceImpl", "LLM 摘要响应: $response")
-            response.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text ?: "无法生成摘要。"
+            val summaryText = response.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text ?: "无法生成摘要。"
+            Log.d("UtilityServiceImpl", "解析后的摘要文本: $summaryText") // 新增的日志
+            summaryText
         } catch (e: Exception) {
             Log.e("UtilityServiceImpl", "获取 LLM 摘要失败", e)
             "抱歉，无法生成摘要。错误：${e.localizedMessage}"
@@ -85,14 +87,20 @@ class UtilityServiceImpl @Inject constructor(
                 parts = listOf(Part(text = text))
             )
         )
+        val modelId = helpers.getEmbeddingModel() // 使用辅助函数获取模型ID
         val apiKey = helpers.getApiKey()
-        val requestUrl = "${helpers.baseLlmApiUrl}v1beta/models/embedding-gecko-001:embedContent?key=$apiKey"
+        val requestUrl = "${helpers.baseLlmApiUrl}v1beta/models/$modelId:embedContent?key=$apiKey"
         Log.d("UtilityServiceImpl", "LLM 嵌入请求 URL: $requestUrl")
         Log.d("UtilityServiceImpl", "LLM 嵌入请求体: $request")
 
-        val response = llmApiService.getEmbedding(apiKey, request)
-        Log.d("UtilityServiceImpl", "LLM 嵌入响应: $response")
-        return response.embedding.values
+        return try {
+            val response = llmApiService.getEmbedding(modelId, apiKey, request) // 传入模型ID
+            Log.d("UtilityServiceImpl", "LLM 嵌入响应: $response")
+            response.embedding.values
+        } catch (e: Exception) {
+            Log.e("UtilityServiceImpl", "获取 LLM 嵌入失败", e)
+            emptyList()
+        }
     }
 
     /**

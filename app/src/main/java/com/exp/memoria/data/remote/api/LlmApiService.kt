@@ -72,8 +72,9 @@ interface LlmApiService {
     ): LlmResponse
 
     /** 获取文本向量 */
-    @POST("v1beta/models/embedding-gecko-001:embedContent")
+    @POST("v1beta/models/{modelId}:embedContent")
     suspend fun getEmbedding(
+        @Path("modelId") modelId: String,
         @Query("key") apiKey: String,
         @Body request: EmbeddingRequest
     ): EmbeddingResponse

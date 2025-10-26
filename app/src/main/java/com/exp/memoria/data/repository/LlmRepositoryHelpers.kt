@@ -67,18 +67,26 @@ class LlmRepositoryHelpers @Inject constructor(
     }
 
     /**
-     * 将 Float 类型的安全阈值映射为 String 类型。
-     * 假设：Float 值是 0.0f, 1.0f, 2.0f, 3.0f 分别对应不同的屏蔽等级。
-     * @param floatThreshold Float 类型的安全阈值。
+     * 获取当前配置的嵌入模型名称。
+     * TODO: 未来可以考虑让此设置也从 SettingsRepository 读取。
+     */
+    internal fun getEmbeddingModel(): String {
+        return "gemini-embedding-001"
+    }
+
+    /**
+     * 将 0.0f 到 1.0f 范围内的浮点数安全阈值映射为对应的 HarmBlockThreshold 字符串常量。
+     *
+     * @param floatThreshold Float 类型的安全阈值，取值范围为 0.0f 到 1.0f。
      * @return 对应的 String 类型阈值常量。
      */
     private fun getThresholdStringFromFloat(floatThreshold: Float): String {
-        return when (floatThreshold) {
-            0.0f -> HarmBlockThreshold.BLOCK_NONE
-            1.0f -> HarmBlockThreshold.BLOCK_ONLY_HIGH
-            2.0f -> HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE
-            3.0f -> HarmBlockThreshold.BLOCK_LOW_AND_ABOVE
-            else -> HarmBlockThreshold.HARM_BLOCK_THRESHOLD_UNSPECIFIED
+        return when {
+            floatThreshold < 0.125f -> HarmBlockThreshold.HARM_BLOCK_THRESHOLD_UNSPECIFIED
+            floatThreshold < 0.375f -> HarmBlockThreshold.BLOCK_NONE
+            floatThreshold < 0.625f -> HarmBlockThreshold.BLOCK_ONLY_HIGH
+            floatThreshold < 0.875f -> HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE
+            else -> HarmBlockThreshold.BLOCK_LOW_AND_ABOVE
         }
     }
 

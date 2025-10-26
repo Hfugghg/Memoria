@@ -1,5 +1,6 @@
 package com.exp.memoria.data.repository.impl
 
+import android.util.Log
 import com.exp.memoria.data.local.dao.CondensedMemoryDao
 import com.exp.memoria.data.local.dao.RawMemoryDao
 import com.exp.memoria.data.local.entity.CondensedMemory
@@ -152,13 +153,25 @@ class MessageRepositoryImpl @Inject constructor(
      * @param vector 生成的浮点数向量。
      */
     override suspend fun updateProcessedMemory(id: Long, summary: String, vector: List<Float>) {
-        val byteBuffer = ByteBuffer.allocate(vector.size * 4).order(ByteOrder.nativeOrder())
-        for (value in vector) {
-            byteBuffer.putFloat(value)
+        val condensedMemory = condensedMemoryDao.getCondensedMemoryByRawMemoryId(id)
+        if (condensedMemory == null) {
+            Log.w("MessageRepositoryImpl", "根据 raw_memory_id: $id 未找到需要更新的浓缩记忆。")
+            return
         }
-        val byteArray = byteBuffer.array()
 
-        condensedMemoryDao.updateProcessedMemory(id, summary, byteArray)
+        // 使用 copy 创建一个新的实例，并更新字段
+        val updatedCondensedMemory = condensedMemory.copy(
+            summary_text = summary,
+            vector_int8 = vector,
+            status = "INDEXED"
+        )
+
+        // 使用 @Update 方法更新整个对象
+        condensedMemoryDao.update(updatedCondensedMemory)
+
+        // 新增的日志，用于验证读取转换
+        val reReadMemory = condensedMemoryDao.getCondensedMemoryByRawMemoryId(id)
+        Log.d("MessageRepositoryImpl", "数据库读取验证 - 向量 (前5个值): ${reReadMemory?.vector_int8?.take(5)?.joinToString() ?: "N/A"}")
     }
 
     /**
