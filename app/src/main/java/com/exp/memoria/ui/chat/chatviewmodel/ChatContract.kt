@@ -14,13 +14,15 @@ import java.util.UUID
  * @property memoryId 对应于数据库中 `RawMemory` 表的 `id`。这对于更新或删除操作至-关重要。
  *                    对于尚未存入数据库的新消息（例如，用户刚输入但未发送的消息），此值为 null。
  * @property attachments 附加到消息的文件URI列表。
+ * @property summary 消息的摘要。
  */
 data class ChatMessage(
     val id: UUID = UUID.randomUUID(),
     val text: String,
     val isFromUser: Boolean,
     val memoryId: Long? = null,
-    val attachments: List<Uri> = emptyList()
+    val attachments: List<Uri> = emptyList(),
+    val summary: String? = null
 )
 
 /**

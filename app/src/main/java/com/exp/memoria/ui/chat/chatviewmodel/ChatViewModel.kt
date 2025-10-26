@@ -107,6 +107,26 @@ class ChatViewModel @Inject constructor(
         }
     }
 
+    fun loadSummary(messageId: UUID) {
+        viewModelScope.launch {
+            val message = _uiState.value.messages.find { it.id == messageId } ?: return@launch
+            val memoryId = message.memoryId ?: return@launch
+
+            val summary = memoryRepository.getMemorySummary(memoryId)
+
+            _uiState.update { currentState ->
+                val updatedMessages = currentState.messages.map {
+                    if (it.id == messageId) {
+                        it.copy(summary = summary)
+                    } else {
+                        it
+                    }
+                }
+                currentState.copy(messages = updatedMessages)
+            }
+        }
+    }
+
     fun updateMessage(messageId: UUID, newText: String) {
         viewModelScope.launch {
             var memoryIdToUpdate: Long? = null
@@ -136,6 +156,43 @@ class ChatViewModel @Inject constructor(
                         val restoredMessages = currentState.messages.map { message ->
                             if (message.id == messageId) {
                                 message.copy(text = originalText ?: newText)
+                            } else {
+                                message
+                            }
+                        }
+                        currentState.copy(messages = restoredMessages)
+                    }
+                }
+            }
+        }
+    }
+
+    fun updateMessageSummary(messageId: UUID, newSummary: String) {
+        viewModelScope.launch {
+            var memoryIdToUpdate: Long? = null
+            var originalSummary: String? = null
+
+            _uiState.update { currentState ->
+                val updatedMessages = currentState.messages.map { message ->
+                    if (message.id == messageId) {
+                        memoryIdToUpdate = message.memoryId
+                        originalSummary = message.summary
+                        message.copy(summary = newSummary)
+                    } else {
+                        message
+                    }
+                }
+                currentState.copy(messages = updatedMessages)
+            }
+
+            memoryIdToUpdate?.let { memoryId ->
+                try {
+                    memoryRepository.updateMemorySummary(memoryId, newSummary)
+                } catch (_: Exception) {
+                    _uiState.update { currentState ->
+                        val restoredMessages = currentState.messages.map { message ->
+                            if (message.id == messageId) {
+                                message.copy(summary = originalSummary)
                             } else {
                                 message
                             }
@@ -291,7 +348,7 @@ class ChatViewModel @Inject constructor(
 
             val fileName = getFileNameFromUri(uri) ?: return@launch
             val files = memoryRepository.getMessageFilesForMemory(memoryId)
-            val fileToDelete = files.find { File(it.fileName).name == fileName }
+            val fileToDelete = files.find { it.fileName == fileName }
 
             fileToDelete?.let {
                 memoryRepository.deleteMessageFile(it)

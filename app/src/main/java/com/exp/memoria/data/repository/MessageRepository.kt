@@ -34,6 +34,14 @@ interface MessageRepository {
     suspend fun getMemoryById(id: Long): RawMemory?
 
     /**
+     * 获取指定记忆的摘要。
+     *
+     * @param memoryId 记忆ID。
+     * @return 记忆的摘要文本，如果不存在则为null。
+     */
+    suspend fun getMemorySummary(memoryId: Long): String?
+
+    /**
      * 更新一个已处理的记忆。
      *
      * @param id 记忆的ID。
@@ -74,6 +82,14 @@ interface MessageRepository {
      * @param newText 新的文本内容。
      */
     suspend fun updateMemoryText(memoryId: Long, newText: String)
+
+    /**
+     * 更新指定记忆的摘要内容。
+     *
+     * @param memoryId 记忆ID。
+     * @param newSummary 新的摘要内容。
+     */
+    suspend fun updateMemorySummary(memoryId: Long, newSummary: String)
 
     /**
      * 删除指定ID及其之后的所有记忆。
