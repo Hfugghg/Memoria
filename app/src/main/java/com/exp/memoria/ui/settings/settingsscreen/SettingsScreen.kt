@@ -9,17 +9,19 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.exp.memoria.ui.settings.SettingsViewModel
@@ -61,6 +63,17 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
     var editingInstructionIndex by remember { mutableStateOf<Int?>(null) }
     var draftInstructionText by remember { mutableStateOf("") }
 
+    // API Key 输入框的本地状态
+    var apiKeyInput by remember { mutableStateOf(settings.apiKey) }
+    var apiKeyVisible by rememberSaveable { mutableStateOf(false) }
+
+    // 当 ViewModel 中的 apiKey 变化时，同步更新本地状态
+    LaunchedEffect(settings.apiKey) {
+        if (apiKeyInput != settings.apiKey) {
+            apiKeyInput = settings.apiKey
+        }
+    }
+
     // 页面整体脚手架
     Scaffold(
         topBar = {
@@ -76,10 +89,27 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
         ) {
             // API Key 输入框
             OutlinedTextField(
-                value = settings.apiKey,
-                onValueChange = viewModel::onApiKeyChange,
+                value = apiKeyInput,
+                onValueChange = {
+                    apiKeyInput = it // 立即更新本地状态，解决粘贴问题
+                    viewModel.onApiKeyChange(it) // 通知 ViewModel 保存
+                },
                 label = { Text("API Key") },
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                visualTransformation = if (apiKeyVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                trailingIcon = {
+                    val image = if (apiKeyVisible)
+                        Icons.Filled.Visibility
+                    else
+                        Icons.Filled.VisibilityOff
+                    val description = if (apiKeyVisible) "隐藏密钥" else "显示密钥"
+
+                    IconButton(onClick = { apiKeyVisible = !apiKeyVisible }) {
+                        Icon(imageVector = image, contentDescription = description)
+                    }
+                }
             )
 
             // 对话模型选择输入框
