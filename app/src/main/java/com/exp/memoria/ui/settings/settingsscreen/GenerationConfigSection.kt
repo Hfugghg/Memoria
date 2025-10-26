@@ -4,6 +4,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
@@ -29,6 +31,7 @@ import com.exp.memoria.ui.settings.Settings
  * - **Seed**: 随机种子，用于确保结果的可复现性。
  * - **Response MIME Type**: 指定期望的响应格式，如 `application/json`。
  * - **Response Logprobs**: 控制是否返回每个词元的对数概率。
+ * - **Output Dimensionality**: 指定嵌入输出的维度。
  *
  * @param settings 当前的设置状态，包含所有生成配置的值。
  * @param onTemperatureChange 当 Temperature 值变化时调用的回调。
@@ -42,7 +45,9 @@ import com.exp.memoria.ui.settings.Settings
  * @param onSeedChange 当随机种子变化时调用的回调。
  * @param onResponseMimeTypeChange 当 Response MIME Type 变化时调用的回调。
  * @param onResponseLogprobsChange 当是否返回对数概率的开关变化时调用的回调。
+ * @param onOutputDimensionalityChange 当嵌入输出维度变化时调用的回调。
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GenerationConfigSection(
     settings: Settings,
@@ -56,8 +61,12 @@ fun GenerationConfigSection(
     onCandidateCountChange: (Int) -> Unit,
     onSeedChange: (Int?) -> Unit,
     onResponseMimeTypeChange: (String) -> Unit,
-    onResponseLogprobsChange: (Boolean) -> Unit
+    onResponseLogprobsChange: (Boolean) -> Unit,
+    onOutputDimensionalityChange: (Int?) -> Unit
 ) {
+    val outputDimensionalityOptions = listOf("" to "默认", "768" to "768", "1536" to "1536", "3072" to "3072")
+    val expanded = remember { mutableStateOf(false) }
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -157,6 +166,39 @@ fun GenerationConfigSection(
                 placeholder = { Text("例如 application/json") },
                 modifier = Modifier.fillMaxWidth()
             )
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // 输出维度下拉列表
+            ExposedDropdownMenuBox(
+                expanded = expanded.value,
+                onExpandedChange = { expanded.value = !expanded.value }
+            ) {
+                val selectedLabel = outputDimensionalityOptions.find { it.first == (settings.outputDimensionality?.toString() ?: "") }?.second ?: ""
+                OutlinedTextField(
+                    value = selectedLabel,
+                    onValueChange = {},
+                    label = { Text("嵌入输出维度") },
+                    readOnly = true,
+                    trailingIcon = {
+                        ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded.value)
+                    },
+                    modifier = Modifier.menuAnchor().fillMaxWidth()
+                )
+                ExposedDropdownMenu(
+                    expanded = expanded.value,
+                    onDismissRequest = { expanded.value = false }
+                ) {
+                    outputDimensionalityOptions.forEach { (value, label) ->
+                        DropdownMenuItem(
+                            text = { Text(label) },
+                            onClick = {
+                                onOutputDimensionalityChange(value.toIntOrNull())
+                                expanded.value = false
+                            }
+                        )
+                    }
+                }
+            }
             Spacer(modifier = Modifier.height(8.dp))
 
             // Frequency Penalty 输入框

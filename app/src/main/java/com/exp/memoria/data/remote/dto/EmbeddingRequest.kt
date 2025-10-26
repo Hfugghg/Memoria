@@ -18,5 +18,12 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class EmbeddingRequest(
     /** 需要被向量化的内容。 */
-    val content: EmbeddingContent // <-- 关键修改：从 Content 改为 EmbeddingContent
+    val content: EmbeddingContent, // <-- 关键修改：从 Content 改为 EmbeddingContent
+
+    /**
+     * 【嵌入输出维度】
+     * 指定嵌入输出的维度。
+     * 可选值为 768, 1536, 3072。
+     */
+    val outputDimensionality: Int? = null
 )

@@ -5,7 +5,9 @@ import com.exp.memoria.data.remote.api.LlmApiService
 import com.exp.memoria.data.remote.api.ModelDetail
 import com.exp.memoria.data.remote.dto.*
 import com.exp.memoria.data.repository.LlmRepositoryHelpers
+import com.exp.memoria.data.repository.SettingsRepository
 import com.exp.memoria.data.repository.UtilityService
+import kotlinx.coroutines.flow.first
 import kotlinx.serialization.encodeToString
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -16,7 +18,8 @@ import javax.inject.Singleton
 @Singleton
 class UtilityServiceImpl @Inject constructor(
     private val llmApiService: LlmApiService,
-    private val helpers: LlmRepositoryHelpers
+    private val helpers: LlmRepositoryHelpers,
+    private val settingsRepository: SettingsRepository
 ) : UtilityService {
 
     /**
@@ -27,6 +30,11 @@ class UtilityServiceImpl @Inject constructor(
      * @return 从 LLM 返回的摘要文本。如果请求失败或响应格式不正确，则返回一个默认的错误消息。
      */
     override suspend fun getSummary(text: String, responseSchema: String?): String {
+        if (settingsRepository.settingsFlow.first().disableSummaryAndEmbedding) {
+            Log.d("UtilityServiceImpl", "摘要功能已通过设置禁用。")
+            return "摘要功能已禁用。"
+        }
+
         val components = helpers.buildLlmRequestComponents(responseSchema)
         val generationConfig = components.generationConfig
         val safetySettings = components.safetySettings
@@ -53,7 +61,9 @@ class UtilityServiceImpl @Inject constructor(
         return try {
             val response = llmApiService.getSummary(modelId, apiKey, request)
             Log.d("UtilityServiceImpl", "LLM 摘要响应: $response")
-            response.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text ?: "无法生成摘要。"
+            val summaryText = response.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text ?: "无法生成摘要。"
+            Log.d("UtilityServiceImpl", "解析后的摘要文本: $summaryText") // 新增的日志
+            summaryText
         } catch (e: Exception) {
             Log.e("UtilityServiceImpl", "获取 LLM 摘要失败", e)
             "抱歉，无法生成摘要。错误：${e.localizedMessage}"
@@ -67,19 +77,32 @@ class UtilityServiceImpl @Inject constructor(
      * @return 一个代表文本语义的浮点数列表（即向量）。如果请求失败，此函数可能会抛出异常。
      */
     override suspend fun getEmbedding(text: String): List<Float> {
+        val settings = settingsRepository.settingsFlow.first()
+        if (settings.disableSummaryAndEmbedding) {
+            Log.d("UtilityServiceImpl", "嵌入功能已通过设置禁用。")
+            return emptyList()
+        }
+
         val request = EmbeddingRequest(
             content = EmbeddingContent(
                 parts = listOf(Part(text = text))
-            )
+            ),
+            outputDimensionality = settings.outputDimensionality
         )
+        val modelId = helpers.getEmbeddingModel() // 使用辅助函数获取模型ID
         val apiKey = helpers.getApiKey()
-        val requestUrl = "${helpers.baseLlmApiUrl}v1beta/models/embedding-gecko-001:embedContent?key=$apiKey"
+        val requestUrl = "${helpers.baseLlmApiUrl}v1beta/models/$modelId:embedContent?key=$apiKey"
         Log.d("UtilityServiceImpl", "LLM 嵌入请求 URL: $requestUrl")
         Log.d("UtilityServiceImpl", "LLM 嵌入请求体: $request")
 
-        val response = llmApiService.getEmbedding(apiKey, request)
-        Log.d("UtilityServiceImpl", "LLM 嵌入响应: $response")
-        return response.embedding.values
+        return try {
+            val response = llmApiService.getEmbedding(modelId, apiKey, request) // 传入模型ID
+            Log.d("UtilityServiceImpl", "LLM 嵌入响应: $response")
+            response.embedding.values
+        } catch (e: Exception) {
+            Log.e("UtilityServiceImpl", "获取 LLM 嵌入失败", e)
+            emptyList()
+        }
     }
 
     /**

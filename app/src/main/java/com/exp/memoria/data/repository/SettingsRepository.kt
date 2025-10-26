@@ -24,4 +24,6 @@ interface SettingsRepository {
     suspend fun updateSexuallyExplicit(value: Float)
     suspend fun updateDangerousContent(value: Float)
     suspend fun updateIsStreamingEnabled(isStreamingEnabled: Boolean)
+    suspend fun updateDisableSummaryAndEmbedding(disableSummaryAndEmbedding: Boolean)
+    suspend fun updateOutputDimensionality(outputDimensionality: Int?)
 }

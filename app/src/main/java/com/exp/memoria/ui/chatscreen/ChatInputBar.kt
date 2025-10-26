@@ -57,7 +57,7 @@ fun ChatInputBar(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 4.dp, vertical = 4.dp),
+                .padding(horizontal = 8.dp, vertical = 4.dp), // 增加了整体的水平内边距，让布局呼吸感更好
             verticalAlignment = Alignment.Bottom // 将所有子项与底部对齐
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -88,7 +88,11 @@ fun ChatInputBar(
                     }
                 }
 
-                IconButton(onClick = { isMenuExpanded = !isMenuExpanded }) {
+                // 缩小了附件按钮的尺寸，使其更紧凑
+                IconButton(
+                    onClick = { isMenuExpanded = !isMenuExpanded },
+                    modifier = Modifier.size(40.dp)
+                ) {
                     Icon(
                         imageVector = if (isMenuExpanded) Icons.Default.Close else Icons.Default.Add,
                         contentDescription = if (isMenuExpanded) "关闭菜单" else "展开菜单",
@@ -97,18 +101,23 @@ fun ChatInputBar(
                 }
             }
 
-            Spacer(modifier = Modifier.width(4.dp))
+            Spacer(modifier = Modifier.width(4.dp)) // 保留一个微小的间距
 
             TextField(
                 value = text,
                 onValueChange = { text = it },
                 modifier = Modifier.weight(1f),
-                placeholder = { Text("与 Memoria 对话...") },
+                placeholder = { Text("请输入文本…", maxLines = 1, overflow = TextOverflow.Ellipsis) }, // 确保 placeholder 不会换行
                 trailingIcon = {
                     // 只有当输入框为空且 tokensCount 不为 null 时才显示Tokens计数
                     if (text.isBlank() && tokensCount != null) {
+                        val displayTokens = if (tokensCount > 999) {
+                            String.format("%.1fk", tokensCount / 1000f).replace(".0", "")
+                        } else {
+                            tokensCount.toString()
+                        }
                         Text(
-                            text = "Tokens: $tokensCount",
+                            text = "Tokens: $displayTokens",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(end = 8.dp) // 调整内边距以美观
@@ -117,13 +126,14 @@ fun ChatInputBar(
                 }
             )
             Spacer(modifier = Modifier.width(8.dp))
+            // 减小了发送按钮的水平内边距，并移除了不必要的 modifier
             Button(
                 onClick = {
                     onSendMessage(text, attachments)
                     text = ""
                 },
-                enabled = !isLoading && (text.isNotBlank() || attachments.isNotEmpty()), // 当 isLoading 为 true 或文本和附件都为空时禁用按钮
-                modifier = Modifier.height(IntrinsicSize.Min) // 确保按钮与TextField高度大致匹配
+                enabled = !isLoading && (text.isNotBlank() || attachments.isNotEmpty()),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
             ) {
                 Text("发送")
             }

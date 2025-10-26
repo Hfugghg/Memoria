@@ -4,6 +4,7 @@ import androidx.room.ColumnInfo
 import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.Query
+import androidx.room.Update
 import com.exp.memoria.data.local.entity.CondensedMemory
 
 /**
@@ -40,8 +41,8 @@ interface CondensedMemoryDao {
     @Insert
     suspend fun insert(condensedMemory: CondensedMemory): Long
 
-    @Query("UPDATE condensed_memory SET summary_text = :summary, vector_int8 = :vector, status = 'INDEXED' WHERE raw_memory_id = :id")
-    suspend fun updateProcessedMemory(id: Long, summary: String, vector: ByteArray)
+    @Update
+    suspend fun update(condensedMemory: CondensedMemory)
 
     @Query("SELECT * FROM condensed_memory WHERE status = 'NEW'")
     suspend fun getUnprocessedMemories(): List<CondensedMemory>
@@ -57,6 +58,9 @@ interface CondensedMemoryDao {
 
     @Query("DELETE FROM condensed_memory WHERE conversationId = :conversationId AND raw_memory_id >= :id")
     suspend fun deleteFrom(conversationId: String, id: Long)
+
+    @Query("SELECT * FROM condensed_memory WHERE raw_memory_id = :rawMemoryId")
+    suspend fun getCondensedMemoryByRawMemoryId(rawMemoryId: Long): CondensedMemory?
 }
 
 data class MemoryVector(

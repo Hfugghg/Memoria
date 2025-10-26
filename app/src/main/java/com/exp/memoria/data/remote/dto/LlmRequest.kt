@@ -162,5 +162,12 @@ data class GenerationConfig(
     /**
      * 如果为 true，则在响应中导出输出 token 的对数概率（logprobs）。
      */
-    val responseLogprobs: Boolean? = null
+    val responseLogprobs: Boolean? = null,
+
+    /**
+     * 【嵌入输出维度】
+     * 指定嵌入输出的维度。
+     * 可选值为 768, 1536, 3072。
+     */
+    val outputDimensionality: Int? = null
 )
