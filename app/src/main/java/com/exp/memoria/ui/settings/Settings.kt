@@ -25,6 +25,7 @@ package com.exp.memoria.ui.settings
  * @property sexuallyExplicit 安全设置：色情内容的屏蔽阈值。
  * @property dangerousContent 安全设置：危险内容内容的屏蔽阈值。
  * @property isStreamingEnabled 是否启用流式输出。
+ * @property disableSummaryAndEmbedding 是否禁用摘要和嵌入请求。
  */
 data class Settings(
     val apiKey: String = "",
@@ -45,5 +46,6 @@ data class Settings(
     val hateSpeech: Float = 0.0f,
     val sexuallyExplicit: Float = 0.0f,
     val dangerousContent: Float = 0.0f,
-    val isStreamingEnabled: Boolean = false
+    val isStreamingEnabled: Boolean = false,
+    val disableSummaryAndEmbedding: Boolean = false
 )

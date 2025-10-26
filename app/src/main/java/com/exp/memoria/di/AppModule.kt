@@ -68,9 +68,10 @@ object AppModule {
     @Singleton
     fun provideUtilityService(
         llmApiService: LlmApiService,
-        helpers: LlmRepositoryHelpers // 依赖于 Helpers
+        helpers: LlmRepositoryHelpers, // 依赖于 Helpers
+        settingsRepository: SettingsRepository
     ): UtilityService {
-        return UtilityServiceImpl(llmApiService, helpers)
+        return UtilityServiceImpl(llmApiService, helpers, settingsRepository)
     }
 
     // 4. 修改后的 LlmRepository 提供函数

@@ -41,6 +41,7 @@ class SettingsRepositoryImpl @Inject constructor(
         val SEXUALLY_EXPLICIT = floatPreferencesKey("sexually_explicit")
         val DANGEROUS_CONTENT = floatPreferencesKey("dangerous_content")
         val IS_STREAMING_ENABLED = booleanPreferencesKey("is_streaming_enabled")
+        val DISABLE_SUMMARY_AND_EMBEDDING = booleanPreferencesKey("disable_summary_and_embedding")
     }
 
     override val settingsFlow = dataStore.data.map {
@@ -63,6 +64,7 @@ class SettingsRepositoryImpl @Inject constructor(
         val sexuallyExplicit = it[PreferencesKeys.SEXUALLY_EXPLICIT] ?: 0.0f
         val dangerousContent = it[PreferencesKeys.DANGEROUS_CONTENT] ?: 0.0f
         val isStreamingEnabled = it[PreferencesKeys.IS_STREAMING_ENABLED] ?: false
+        val disableSummaryAndEmbedding = it[PreferencesKeys.DISABLE_SUMMARY_AND_EMBEDDING] ?: false
 
         Settings(
             apiKey = apiKey, 
@@ -83,7 +85,8 @@ class SettingsRepositoryImpl @Inject constructor(
             hateSpeech = hateSpeech, 
             sexuallyExplicit = sexuallyExplicit, 
             dangerousContent = dangerousContent, 
-            isStreamingEnabled = isStreamingEnabled
+            isStreamingEnabled = isStreamingEnabled,
+            disableSummaryAndEmbedding = disableSummaryAndEmbedding
         )
     }
 
@@ -173,5 +176,9 @@ class SettingsRepositoryImpl @Inject constructor(
 
     override suspend fun updateIsStreamingEnabled(isStreamingEnabled: Boolean) {
         dataStore.edit { it[PreferencesKeys.IS_STREAMING_ENABLED] = isStreamingEnabled }
+    }
+
+    override suspend fun updateDisableSummaryAndEmbedding(disableSummaryAndEmbedding: Boolean) {
+        dataStore.edit { it[PreferencesKeys.DISABLE_SUMMARY_AND_EMBEDDING] = disableSummaryAndEmbedding }
     }
 }

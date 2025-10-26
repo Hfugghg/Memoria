@@ -335,6 +335,16 @@ class SettingsViewModel @Inject constructor(
     }
 
     /**
+     * 当“禁用摘要和嵌入”开关状态改变时调用。
+     * @param disableSummaryAndEmbedding 新的布尔值。
+     */
+    fun onDisableSummaryAndEmbeddingChange(disableSummaryAndEmbedding: Boolean) {
+        viewModelScope.launch {
+            settingsRepository.updateDisableSummaryAndEmbedding(disableSummaryAndEmbedding)
+        }
+    }
+
+    /**
      * 当“骚扰”安全等级滑块值改变时调用。
      * @param value 新的阈值。
      */

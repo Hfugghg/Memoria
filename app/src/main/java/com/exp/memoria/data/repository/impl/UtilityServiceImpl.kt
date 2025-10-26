@@ -5,7 +5,9 @@ import com.exp.memoria.data.remote.api.LlmApiService
 import com.exp.memoria.data.remote.api.ModelDetail
 import com.exp.memoria.data.remote.dto.*
 import com.exp.memoria.data.repository.LlmRepositoryHelpers
+import com.exp.memoria.data.repository.SettingsRepository
 import com.exp.memoria.data.repository.UtilityService
+import kotlinx.coroutines.flow.first
 import kotlinx.serialization.encodeToString
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -16,7 +18,8 @@ import javax.inject.Singleton
 @Singleton
 class UtilityServiceImpl @Inject constructor(
     private val llmApiService: LlmApiService,
-    private val helpers: LlmRepositoryHelpers
+    private val helpers: LlmRepositoryHelpers,
+    private val settingsRepository: SettingsRepository
 ) : UtilityService {
 
     /**
@@ -27,6 +30,11 @@ class UtilityServiceImpl @Inject constructor(
      * @return 从 LLM 返回的摘要文本。如果请求失败或响应格式不正确，则返回一个默认的错误消息。
      */
     override suspend fun getSummary(text: String, responseSchema: String?): String {
+        if (settingsRepository.settingsFlow.first().disableSummaryAndEmbedding) {
+            Log.d("UtilityServiceImpl", "摘要功能已通过设置禁用。")
+            return "摘要功能已禁用。"
+        }
+
         val components = helpers.buildLlmRequestComponents(responseSchema)
         val generationConfig = components.generationConfig
         val safetySettings = components.safetySettings
@@ -67,6 +75,11 @@ class UtilityServiceImpl @Inject constructor(
      * @return 一个代表文本语义的浮点数列表（即向量）。如果请求失败，此函数可能会抛出异常。
      */
     override suspend fun getEmbedding(text: String): List<Float> {
+        if (settingsRepository.settingsFlow.first().disableSummaryAndEmbedding) {
+            Log.d("UtilityServiceImpl", "嵌入功能已通过设置禁用。")
+            return emptyList()
+        }
+
         val request = EmbeddingRequest(
             content = EmbeddingContent(
                 parts = listOf(Part(text = text))

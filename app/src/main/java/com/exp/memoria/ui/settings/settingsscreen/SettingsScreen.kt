@@ -185,6 +185,27 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
                 )
             }
 
+            // 调试模式开关
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("禁用摘要/嵌入", style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        "调试时可开启，以节省配额",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+                Switch(
+                    checked = settings.disableSummaryAndEmbedding,
+                    onCheckedChange = viewModel::onDisableSummaryAndEmbeddingChange
+                )
+            }
+
             Spacer(modifier = Modifier.height(16.dp))
             Text("LLM 高级设置", style = MaterialTheme.typography.titleLarge)
             Spacer(modifier = Modifier.height(8.dp))
