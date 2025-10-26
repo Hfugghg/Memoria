@@ -131,6 +131,10 @@ fun ChatScreen(
     var attachmentToDeleteMessageId by remember { mutableStateOf<UUID?>(null) }
     var attachmentToDeleteUri by remember { mutableStateOf<Uri?>(null) }
 
+    // 用于摘要编辑的状态
+    var editingSummaryMessageId by remember { mutableStateOf<UUID?>(null) }
+    var editingSummaryText by remember { mutableStateOf("") }
+
     LaunchedEffect(uiState.messages.size) {
         if (uiState.messages.isNotEmpty()) {
             coroutineScope.launch {
@@ -227,6 +231,23 @@ fun ChatScreen(
                         attachmentToDeleteMessageId = message.id
                         attachmentToDeleteUri = uri
                         showDeleteAttachmentDialog = true
+                    },
+                    onLoadSummary = { viewModel.loadSummary(message.id) },
+                    isEditingSummary = editingSummaryMessageId == message.id,
+                    editingSummaryText = if (editingSummaryMessageId == message.id) editingSummaryText else message.summary ?: "",
+                    onEditingSummaryTextChange = { editingSummaryText = it },
+                    onEditSummary = {
+                        editingSummaryMessageId = message.id
+                        editingSummaryText = message.summary ?: ""
+                    },
+                    onConfirmEditSummary = {
+                        editingSummaryMessageId?.let { id ->
+                            viewModel.updateMessageSummary(id, editingSummaryText)
+                        }
+                        editingSummaryMessageId = null
+                    },
+                    onCancelEditSummary = {
+                        editingSummaryMessageId = null
                     }
                 )
             }

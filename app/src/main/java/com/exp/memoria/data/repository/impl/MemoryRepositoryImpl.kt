@@ -92,6 +92,16 @@ class MemoryRepositoryImpl @Inject constructor(
     }
 
     /**
+     * 获取指定记忆的摘要。
+     *
+     * @param memoryId 记忆ID。
+     * @return 记忆的摘要文本，如果不存在则为null。
+     */
+    override suspend fun getMemorySummary(memoryId: Long): String? {
+        return messageRepository.getMemorySummary(memoryId)
+    }
+
+    /**
      * 更新已处理记忆的摘要和向量。
      *
      * @param id 记忆的 ID。
@@ -141,6 +151,16 @@ class MemoryRepositoryImpl @Inject constructor(
      */
     override suspend fun updateMemoryText(memoryId: Long, newText: String) {
         messageRepository.updateMemoryText(memoryId, newText)
+    }
+
+    /**
+     * 更新记忆的摘要内容。
+     *
+     * @param memoryId 记忆的 ID。
+     * @param newSummary 新的摘要内容。
+     */
+    override suspend fun updateMemorySummary(memoryId: Long, newSummary: String) {
+        messageRepository.updateMemorySummary(memoryId, newSummary)
     }
 
     /**

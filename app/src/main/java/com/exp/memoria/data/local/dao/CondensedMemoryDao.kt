@@ -61,6 +61,12 @@ interface CondensedMemoryDao {
 
     @Query("SELECT * FROM condensed_memory WHERE raw_memory_id = :rawMemoryId")
     suspend fun getCondensedMemoryByRawMemoryId(rawMemoryId: Long): CondensedMemory?
+
+    @Query("SELECT summary_text FROM condensed_memory WHERE raw_memory_id = :rawMemoryId")
+    suspend fun getSummaryByRawMemoryId(rawMemoryId: Long): String?
+
+    @Query("UPDATE condensed_memory SET summary_text = :newSummary WHERE raw_memory_id = :rawMemoryId")
+    suspend fun updateSummaryByRawMemoryId(rawMemoryId: Long, newSummary: String)
 }
 
 data class MemoryVector(

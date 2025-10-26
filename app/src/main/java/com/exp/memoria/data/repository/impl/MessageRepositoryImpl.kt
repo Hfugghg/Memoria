@@ -9,8 +9,6 @@ import com.exp.memoria.data.local.entity.RawMemory
 import com.exp.memoria.data.model.FileAttachment
 import com.exp.memoria.data.repository.FileAttachmentRepository
 import com.exp.memoria.data.repository.MessageRepository
-import java.nio.ByteBuffer
-import java.nio.ByteOrder
 import javax.inject.Inject
 
 /**
@@ -146,6 +144,16 @@ class MessageRepositoryImpl @Inject constructor(
     }
 
     /**
+     * 获取指定记忆的摘要。
+     *
+     * @param memoryId 记忆ID。
+     * @return 记忆的摘要文本，如果不存在则为null。
+     */
+    override suspend fun getMemorySummary(memoryId: Long): String? {
+        return condensedMemoryDao.getSummaryByRawMemoryId(memoryId)
+    }
+
+    /**
      * 更新已处理的精简记忆，存入摘要和向量数据。
      *
      * @param id 原始记忆的 ID，与精简记忆关联。
@@ -213,6 +221,16 @@ class MessageRepositoryImpl @Inject constructor(
      */
     override suspend fun updateMemoryText(memoryId: Long, newText: String) {
         rawMemoryDao.updateTextById(memoryId, newText)
+    }
+
+    /**
+     * 更新特定记忆的摘要内容。
+     *
+     * @param memoryId 要更新的记忆的 ID。
+     * @param newSummary 新的摘要内容。
+     */
+    override suspend fun updateMemorySummary(memoryId: Long, newSummary: String) {
+        condensedMemoryDao.updateSummaryByRawMemoryId(memoryId, newSummary)
     }
 
     /**

@@ -3,7 +3,9 @@ package com.exp.memoria.ui.chatscreen
 import android.content.ContentResolver
 import android.net.Uri
 import android.provider.OpenableColumns
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
@@ -11,7 +13,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
@@ -44,9 +46,25 @@ fun MessageBubble(
     onResay: () -> Unit,
     onConfirmEdit: () -> Unit,
     onCancelEdit: () -> Unit,
-    onAttachmentLongPress: (Uri) -> Unit // 新增参数
+    onAttachmentLongPress: (Uri) -> Unit,
+    onLoadSummary: () -> Unit,
+    isEditingSummary: Boolean,
+    editingSummaryText: String,
+    onEditingSummaryTextChange: (String) -> Unit,
+    onEditSummary: () -> Unit,
+    onConfirmEditSummary: () -> Unit,
+    onCancelEditSummary: () -> Unit
 ) {
+    var isSummaryExpanded by remember { mutableStateOf(false) }
     val horizontalArrangement = if (message.isFromUser) Arrangement.End else Arrangement.Start
+
+    // 当开始编辑摘要时，自动展开摘要区域
+    LaunchedEffect(isEditingSummary) {
+        if (isEditingSummary) {
+            isSummaryExpanded = true
+        }
+    }
+
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = if (message.isFromUser) Alignment.End else Alignment.Start
@@ -56,7 +74,7 @@ fun MessageBubble(
             AttachmentPreview(
                 attachments = message.attachments,
                 isFromUser = message.isFromUser,
-                onAttachmentLongPress = onAttachmentLongPress // 传递新增参数
+                onAttachmentLongPress = onAttachmentLongPress
             )
         }
 
@@ -72,19 +90,116 @@ fun MessageBubble(
                     containerColor = if (message.isFromUser) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.secondaryContainer
                 )
             ) {
-                if (isEditing) {
-                    // 编辑模式下仍然使用标准的 TextField
-                    TextField(
-                        value = editingText,
-                        onValueChange = onEditingTextChange,
-                        modifier = Modifier.padding(12.dp)
-                    )
-                } else {
-                    // 使用 MarkdownText 替代标准的 Text Composable 来渲染 Markdown 内容
-                    MarkdownText(
-                        markdown = message.text,
-                        modifier = Modifier.padding(12.dp)
-                    )
+                Column {
+                    if (isEditing) {
+                        // 编辑模式下仍然使用标准的 TextField
+                        TextField(
+                            value = editingText,
+                            onValueChange = onEditingTextChange,
+                            modifier = Modifier.padding(12.dp)
+                        )
+                    } else {
+                        // 使用 MarkdownText 替代标准的 Text Composable 来渲染 Markdown 内容
+                        MarkdownText(
+                            markdown = message.text,
+                            modifier = Modifier.padding(12.dp)
+                        )
+                    }
+
+                    // 对于LLM消息，总是显示摘要区域
+                    if (!message.isFromUser) {
+                        HorizontalDivider(modifier = Modifier.padding(horizontal = 8.dp))
+                        Column(
+                            modifier = Modifier.clickable(enabled = !isEditingSummary) { // 编辑时禁用点击切换
+                                isSummaryExpanded = !isSummaryExpanded
+                                if (isSummaryExpanded) {
+                                    onLoadSummary()
+                                }
+                            }
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(start = 12.dp, top = 8.dp, end = 12.dp)
+                            ) {
+                                Text(
+                                    text = "摘要",
+                                    style = MaterialTheme.typography.labelSmall
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Icon(
+                                    imageVector = if (isSummaryExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                                    contentDescription = "Toggle Summary",
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                            AnimatedVisibility(visible = isSummaryExpanded) {
+                                Column(horizontalAlignment = Alignment.End) {
+                                    if (isEditingSummary) {
+                                        TextField(
+                                            value = editingSummaryText,
+                                            onValueChange = onEditingSummaryTextChange,
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(12.dp)
+                                        )
+                                    } else {
+                                        Text(
+                                            text = message.summary ?: "（加载中...）",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(
+                                                    start = 12.dp,
+                                                    end = 12.dp,
+                                                    bottom = 8.dp,
+                                                    top = 4.dp
+                                                )
+                                        )
+                                    }
+
+                                    // 摘要操作按钮
+                                    Row(
+                                        modifier = Modifier.padding(end = 12.dp, bottom = 4.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        if (isEditingSummary) {
+                                            IconButton(
+                                                onClick = onConfirmEditSummary,
+                                                modifier = Modifier.size(24.dp)
+                                            ) {
+                                                Icon(
+                                                    Icons.Default.Check,
+                                                    contentDescription = "Confirm Summary Edit"
+                                                )
+                                            }
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            IconButton(
+                                                onClick = onCancelEditSummary,
+                                                modifier = Modifier.size(24.dp)
+                                            ) {
+                                                Icon(
+                                                    Icons.Default.Close,
+                                                    contentDescription = "Cancel Summary Edit"
+                                                )
+                                            }
+                                        } else {
+                                            if (!message.summary.isNullOrBlank()) {
+                                                IconButton(
+                                                    onClick = onEditSummary,
+                                                    modifier = Modifier.size(24.dp)
+                                                ) {
+                                                    Icon(
+                                                        Icons.Default.Edit,
+                                                        contentDescription = "Edit Summary"
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -138,6 +253,7 @@ fun MessageActionMenu(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun AttachmentPreview(attachments: List<Uri>, isFromUser: Boolean, onAttachmentLongPress: (Uri) -> Unit) {
     val context = LocalContext.current
