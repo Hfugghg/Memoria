@@ -77,7 +77,8 @@ class UtilityServiceImpl @Inject constructor(
      * @return 一个代表文本语义的浮点数列表（即向量）。如果请求失败，此函数可能会抛出异常。
      */
     override suspend fun getEmbedding(text: String): List<Float> {
-        if (settingsRepository.settingsFlow.first().disableSummaryAndEmbedding) {
+        val settings = settingsRepository.settingsFlow.first()
+        if (settings.disableSummaryAndEmbedding) {
             Log.d("UtilityServiceImpl", "嵌入功能已通过设置禁用。")
             return emptyList()
         }
@@ -85,7 +86,8 @@ class UtilityServiceImpl @Inject constructor(
         val request = EmbeddingRequest(
             content = EmbeddingContent(
                 parts = listOf(Part(text = text))
-            )
+            ),
+            outputDimensionality = settings.outputDimensionality
         )
         val modelId = helpers.getEmbeddingModel() // 使用辅助函数获取模型ID
         val apiKey = helpers.getApiKey()

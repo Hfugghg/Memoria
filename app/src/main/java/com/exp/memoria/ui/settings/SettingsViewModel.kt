@@ -385,6 +385,16 @@ class SettingsViewModel @Inject constructor(
     }
 
     /**
+     * 当 outputDimensionality 值改变时调用。
+     * @param outputDimensionality 新的 outputDimensionality 值。
+     */
+    fun onOutputDimensionalityChange(outputDimensionality: Int?) {
+        viewModelScope.launch {
+            settingsRepository.updateOutputDimensionality(outputDimensionality)
+        }
+    }
+
+    /**
      * 当 responseSchema 输入框内容改变时调用。
      * @param responseSchema 新的 responseSchema 字符串。
      */

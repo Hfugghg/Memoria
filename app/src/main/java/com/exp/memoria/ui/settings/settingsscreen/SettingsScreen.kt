@@ -388,7 +388,8 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
                 onCandidateCountChange = viewModel::onCandidateCountChange,
                 onSeedChange = viewModel::onSeedChange,
                 onResponseMimeTypeChange = viewModel::onResponseMimeTypeChange,
-                onResponseLogprobsChange = viewModel::onResponseLogprobsChange
+                onResponseLogprobsChange = viewModel::onResponseLogprobsChange,
+                onOutputDimensionalityChange = viewModel::onOutputDimensionalityChange
             )
         }
     }

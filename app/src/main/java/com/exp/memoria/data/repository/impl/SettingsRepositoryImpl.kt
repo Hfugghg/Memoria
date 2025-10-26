@@ -42,6 +42,7 @@ class SettingsRepositoryImpl @Inject constructor(
         val DANGEROUS_CONTENT = floatPreferencesKey("dangerous_content")
         val IS_STREAMING_ENABLED = booleanPreferencesKey("is_streaming_enabled")
         val DISABLE_SUMMARY_AND_EMBEDDING = booleanPreferencesKey("disable_summary_and_embedding")
+        val OUTPUT_DIMENSIONALITY = intPreferencesKey("output_dimensionality")
     }
 
     override val settingsFlow = dataStore.data.map {
@@ -65,6 +66,7 @@ class SettingsRepositoryImpl @Inject constructor(
         val dangerousContent = it[PreferencesKeys.DANGEROUS_CONTENT] ?: 0.0f
         val isStreamingEnabled = it[PreferencesKeys.IS_STREAMING_ENABLED] ?: false
         val disableSummaryAndEmbedding = it[PreferencesKeys.DISABLE_SUMMARY_AND_EMBEDDING] ?: false
+        val outputDimensionality = it[PreferencesKeys.OUTPUT_DIMENSIONALITY]
 
         Settings(
             apiKey = apiKey, 
@@ -86,7 +88,8 @@ class SettingsRepositoryImpl @Inject constructor(
             sexuallyExplicit = sexuallyExplicit, 
             dangerousContent = dangerousContent, 
             isStreamingEnabled = isStreamingEnabled,
-            disableSummaryAndEmbedding = disableSummaryAndEmbedding
+            disableSummaryAndEmbedding = disableSummaryAndEmbedding,
+            outputDimensionality = outputDimensionality
         )
     }
 
@@ -180,5 +183,13 @@ class SettingsRepositoryImpl @Inject constructor(
 
     override suspend fun updateDisableSummaryAndEmbedding(disableSummaryAndEmbedding: Boolean) {
         dataStore.edit { it[PreferencesKeys.DISABLE_SUMMARY_AND_EMBEDDING] = disableSummaryAndEmbedding }
+    }
+
+    override suspend fun updateOutputDimensionality(outputDimensionality: Int?) {
+        if (outputDimensionality != null) {
+            dataStore.edit { it[PreferencesKeys.OUTPUT_DIMENSIONALITY] = outputDimensionality }
+        } else {
+            dataStore.edit { it.remove(PreferencesKeys.OUTPUT_DIMENSIONALITY) }
+        }
     }
 }
