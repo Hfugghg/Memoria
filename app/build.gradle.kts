@@ -145,4 +145,6 @@ dependencies {
     // Coil (图片加载)
     implementation("io.coil-kt:coil-compose:2.7.0")
     testImplementation(kotlin("test"))
+    testImplementation("androidx.test:core:1.5.0")
+    testImplementation("org.json:json:20210307")
 }
