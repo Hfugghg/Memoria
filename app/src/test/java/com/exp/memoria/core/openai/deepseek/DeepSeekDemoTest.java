@@ -1,4 +1,5 @@
 package com.exp.memoria.core.openai.deepseek;
+import org.json.JSONException;
 import org.junit.Test;
 
 import okhttp3.*;
@@ -72,6 +73,20 @@ public class DeepSeekDemoTest {
             e.printStackTrace();
         }
     }
+
+    @Test
+    public void testChat() {
+        DeepSeekDemo01 demo = new DeepSeekDemo01();
+
+        try (Response response = demo.chatWithDeepSeek("你好！")) {
+            String content = demo.parseResponse(response);
+            System.out.println("AI回复: " + content);
+        } catch (IOException | JSONException e) {
+            e.printStackTrace();
+        }
+    }
+
+
 
 
 }
