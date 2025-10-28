@@ -7,6 +7,7 @@ import com.exp.memoria.data.remote.dto.InlineData
 import com.exp.memoria.data.remote.dto.Part
 import com.exp.memoria.data.repository.ChatChunkResult
 import com.exp.memoria.data.repository.LlmRepository
+import com.exp.memoria.data.repository.LlmRepositoryHelpers // 导入 LlmRepositoryHelpers
 import com.exp.memoria.data.repository.MemoryRepository
 import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
@@ -33,13 +34,14 @@ import javax.inject.Inject
  */
 class GetChatResponseUseCase @Inject constructor(
     private val memoryRepository: MemoryRepository, // 注入记忆仓库
-    private val llmRepository: LlmRepository // 注入LLM仓库
+    private val llmRepository: LlmRepository, // 注入LLM仓库
+    private val llmRepositoryHelpers: LlmRepositoryHelpers // 注入 LlmRepositoryHelpers
 ) {
     suspend operator fun invoke(
         query: String?, // 将 query 参数改为可空
         conversationId: String,
         isStreaming: Boolean = false,
-        attachments: List<FileAttachment> = emptyList() // 添加附件参数
+        attachments: List<FileAttachment> = emptyList()
     ): Flow<ChatChunkResult> {
         // 在未来的开发中，这里将实现完整的“热记忆”+“冷记忆”+“查询”的上下文组装逻辑
 
@@ -91,11 +93,47 @@ class GetChatResponseUseCase @Inject constructor(
             Log.d("GetChatResponseUseCase", "[诊断] query 为 null，跳过添加新用户消息。这是“重说”的预期行为。")
         }
 
-
         // 4. 获取对话的 header，从中提取 systemInstruction 和 responseSchema
         val conversationHeader = memoryRepository.getConversationHeaderById(conversationId)
         val systemInstruction = conversationHeader?.systemInstruction
         val responseSchema = conversationHeader?.responseSchema
+
+        // 获取当前模型的 inputTokenLimit
+        val inputTokenLimit = llmRepositoryHelpers.getCurrentChatModelInputTokenLimit()
+        Log.d("GetChatResponseUseCase", "[诊断] 当前模型的 inputTokenLimit: $inputTokenLimit")
+
+        // 使用 conversationHeader 中存储的 totalTokenCount 作为当前上下文的近似 token 长度
+        val currentContextTotalTokenCount = conversationHeader?.totalTokenCount ?: 0
+
+        // 新的上下文组装逻辑：当上下文长度超过 inputTokenLimit 的 90% 或已标记需要压缩时启用
+        val shouldCompactContext = conversationHeader?.contextCompactionRequired == true ||
+                                   (inputTokenLimit != null && currentContextTotalTokenCount > (inputTokenLimit * 0.9).toInt())
+
+        if (shouldCompactContext) {
+            Log.d("GetChatResponseUseCase", "[诊断] 上下文总 token 数 (${currentContextTotalTokenCount}) 超过 inputTokenLimit 的 90% (${(inputTokenLimit?.times(0.9))?.toInt() ?: "N/A"}) 或已标记需要压缩，启用新的上下文组装逻辑。")
+
+            // 如果当前对话尚未标记为需要上下文压缩，则更新标志
+            if (conversationHeader?.contextCompactionRequired == false) {
+                memoryRepository.updateContextCompactionRequired(conversationId, true)
+                Log.d("GetChatResponseUseCase", "[诊断] 对话 $conversationId 已标记为需要上下文压缩。")
+            }
+
+            val tokenThresholdOneThirdId = conversationHeader?.tokenThresholdOneThirdId
+            val tokenThresholdTwoThirdsId = conversationHeader?.tokenThresholdTwoThirdsId
+
+            if (tokenThresholdOneThirdId != null && tokenThresholdTwoThirdsId != null) {
+                // 提取第一部分：从第一条消息到 tokenThresholdOneThirdId
+                val firstPart = allMemories.takeWhile { it.id <= tokenThresholdOneThirdId }
+
+                // 提取第三部分：从 tokenThresholdTwoThirdsId 到最新消息
+                val thirdPart = allMemories.dropWhile { it.id < tokenThresholdTwoThirdsId }
+
+                Log.d("GetChatResponseUseCase", "[上下文压缩] 第一部分消息 ID 范围: ${firstPart.firstOrNull()?.id} - ${firstPart.lastOrNull()?.id}")
+                Log.d("GetChatResponseUseCase", "[上下文压缩] 第三部分消息 ID 范围: ${thirdPart.firstOrNull()?.id} - ${thirdPart.lastOrNull()?.id}")
+
+                // TODO: 中间部分的摘要逻辑
+            }
+        }
 
         // 5. 调用LLM仓库，这将正确返回 Flow<ChatChunkResult>，并传入 systemInstruction 和 responseSchema
         return llmRepository.chatResponse(history, systemInstruction, responseSchema, isStreaming)

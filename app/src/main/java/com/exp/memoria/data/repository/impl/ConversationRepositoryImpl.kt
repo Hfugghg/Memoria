@@ -169,4 +169,14 @@ class ConversationRepositoryImpl @Inject constructor(
     override suspend fun updateTotalTokenCount(conversationId: String, totalTokenCount: Int) {
         conversationHeaderDao.updateTotalTokenCount(conversationId, totalTokenCount)
     }
+
+    /**
+     * 更新对话的上下文压缩要求标志。
+     *
+     * @param conversationId 对话ID。
+     * @param contextCompactionRequired 是否需要上下文压缩。
+     */
+    override suspend fun updateContextCompactionRequired(conversationId: String, contextCompactionRequired: Boolean) {
+        conversationHeaderDao.updateContextCompactionRequired(conversationId, contextCompactionRequired)
+    }
 }

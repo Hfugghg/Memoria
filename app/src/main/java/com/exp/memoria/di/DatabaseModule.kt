@@ -49,7 +49,9 @@ object DatabaseModule {
             MemoriaDatabase.MIGRATION_1_2,
             MemoriaDatabase.MIGRATION_2_3,
             MemoriaDatabase.MIGRATION_3_4,
-            MemoriaDatabase.MIGRATION_4_5 // 添加从版本4到5的迁移
+            MemoriaDatabase.MIGRATION_4_5, // 添加从版本4到5的迁移
+            MemoriaDatabase.MIGRATION_5_6,  // 添加从版本5到6的迁移
+            MemoriaDatabase.MIGRATION_6_7   // 添加从版本6到7的迁移
         )
             .addCallback(MemoriaDatabase.FTS_TABLE_CALLBACK)
             .build()

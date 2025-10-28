@@ -1,5 +1,6 @@
 package com.exp.memoria.data.repository
 
+import com.exp.memoria.data.remote.api.LlmApiService
 import com.exp.memoria.data.remote.dto.GenerationConfig
 import com.exp.memoria.data.remote.dto.SafetySetting
 import com.exp.memoria.ui.settings.HarmBlockThreshold
@@ -26,7 +27,8 @@ internal data class LlmRequestComponents(
  */
 @Singleton
 class LlmRepositoryHelpers @Inject constructor(
-    private val settingsRepository: SettingsRepository
+    private val settingsRepository: SettingsRepository,
+    private val llmApiService: LlmApiService // 注入 LlmApiService
 ) {
     internal val baseLlmApiUrl = "https://generativelanguage.googleapis.com/"
 
@@ -139,5 +141,22 @@ class LlmRepositoryHelpers @Inject constructor(
         )
 
         return LlmRequestComponents(responseMimeType, generationConfig, safetySettings)
+    }
+
+    /**
+     * 获取当前聊天模型的 inputTokenLimit。
+     * @return 当前聊天模型的 inputTokenLimit，如果获取失败则返回 null。
+     */
+    internal suspend fun getCurrentChatModelInputTokenLimit(): Int? {
+        return try {
+            val apiKey = getApiKey()
+            val chatModelId = getChatModel()
+            val modelsResponse = llmApiService.getAvailableModels(apiKey)
+            modelsResponse.models.firstOrNull { it.name == "models/$chatModelId" }?.inputTokenLimit
+        } catch (e: Exception) {
+            // 记录错误，但不阻止应用运行
+            // Log.e("LlmRepositoryHelpers", "获取当前聊天模型的 inputTokenLimit 失败", e)
+            null
+        }
     }
 }

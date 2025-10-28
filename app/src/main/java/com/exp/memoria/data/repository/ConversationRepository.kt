@@ -73,4 +73,12 @@ interface ConversationRepository {
      * @param totalTokenCount 新的总令牌计数。
      */
     suspend fun updateTotalTokenCount(conversationId: String, totalTokenCount: Int)
+
+    /**
+     * 更新对话的上下文压缩要求标志。
+     *
+     * @param conversationId 对话ID。
+     * @param contextCompactionRequired 是否需要上下文压缩。
+     */
+    suspend fun updateContextCompactionRequired(conversationId: String, contextCompactionRequired: Boolean)
 }

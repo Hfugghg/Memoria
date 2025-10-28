@@ -1,5 +1,8 @@
 package com.exp.memoria.core.openai.deepseek;
 
+import com.exp.memoria.llmtools.adapter.ToolAdapter;
+import com.exp.memoria.llmtools.adapter.ToolAdapterFactory;
+import com.exp.memoria.llmtools.tool.ToolRegistry;
 import okhttp3.*;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -8,14 +11,17 @@ import java.util.List;
 import org.json.JSONException;
 import org.json.JSONObject;
 import org.json.JSONArray;
+import android.util.Log;
 
 public class DeepSeekCalculatorDemo {
+    private static final String TAG = "DeepSeekDemo";
     // API 配置常量
-    private static final String API_KEY = System.getenv("DEEPSEEK_API_KEY");
     private static final String API_URL = "https://api.deepseek.com/v1/chat/completions";
     private static final String MODEL = "deepseek-chat";
 
+    private final String apiKey;
     private final OkHttpClient client;
+    private final ToolAdapter toolAdapter;
 
     // 计算器工具定义 - 非常简单直观
     private static final JSONArray CALCULATOR_TOOLS;
@@ -44,25 +50,31 @@ public class DeepSeekCalculatorDemo {
                 ]
                 """);
         } catch (JSONException e) {
+            Log.e(TAG, "Error initializing CALCULATOR_TOOLS", e);
             throw new RuntimeException(e);
         }
     }
 
-    public DeepSeekCalculatorDemo() {
+    public DeepSeekCalculatorDemo(String apiKey) {
+        this.apiKey = apiKey;
         this.client = new OkHttpClient();
+        // 使用 ToolRegistry 和 ToolAdapterFactory 来获取适配器
+        ToolRegistry toolRegistry = ToolRegistry.getInstance();
+        ToolAdapterFactory factory = new ToolAdapterFactory(toolRegistry);
+        this.toolAdapter = factory.getAdapter("deepseek");
     }
 
     /**
      * 简单的计算器 Function Calling 演示
      */
-    public void simpleCalculatorExample() {
+    public void simpleCalculatorExample() throws IOException, JSONException {
         try {
             // 对话消息列表
             List<JSONObject> messages = new ArrayList<>();
 
             // 用户提问数学问题
             String userQuestion = "请帮我计算一下 0.9乘以0.518 等于多少？";
-            System.out.println("👤 用户: " + userQuestion);
+            Log.d(TAG, "👤 用户: " + userQuestion);
 
             // 添加用户消息
             JSONObject userMessage = new JSONObject();
@@ -71,7 +83,7 @@ public class DeepSeekCalculatorDemo {
             messages.add(userMessage);
 
             // 第一步：发送请求，模型识别需要调用计算器
-            System.out.println("🔄 发送到DeepSeek...");
+            Log.d(TAG, "🔄 发送到DeepSeek...");
             JSONObject firstResponse = sendMessages(messages, CALCULATOR_TOOLS);
 
             // 解析响应
@@ -83,19 +95,18 @@ public class DeepSeekCalculatorDemo {
 
             // 检查是否有工具调用
             if (assistantMessage.has("tool_calls")) {
-                JSONArray toolCalls = assistantMessage.getJSONArray("tool_calls");
-                JSONObject toolCall = toolCalls.getJSONObject(0);
+                // 使用 ToolAdapter 的 processToolCalls 方法处理整个 assistantMessage
+                List<JSONObject> toolResponseMessages = toolAdapter.processToolCalls(assistantMessage);
 
-                // 执行计算器工具
-                String calculationResult = executeCalculator(toolCall);
-                System.out.println("🧮 计算器执行: " + calculationResult);
+                // 将每个工具响应添加到消息列表中
+                for (JSONObject toolResponseMessage : toolResponseMessages) {
+                    // 提取内容用于日志输出
+                    String calculationResult = toolResponseMessage.getString("content");
+                    Log.d(TAG, "🧮 计算器执行: " + calculationResult);
 
-                // 添加工具执行结果
-                JSONObject toolMessage = new JSONObject();
-                toolMessage.put("role", "tool");
-                toolMessage.put("tool_call_id", toolCall.getString("id"));
-                toolMessage.put("content", calculationResult);
-                messages.add(toolMessage);
+                    // 将格式化后的工具响应消息添加到对话历史中
+                    messages.add(toolResponseMessage);
+                }
 
                 // 第二步：发送计算结果给模型，获得最终回答
                 JSONObject finalResponse = sendMessages(messages, CALCULATOR_TOOLS);
@@ -104,18 +115,19 @@ public class DeepSeekCalculatorDemo {
                         .getJSONObject("message")
                         .getString("content");
 
-                System.out.println("🤖 AI助手: " + finalAnswer);
+                Log.d(TAG, "🤖 AI助手: " + finalAnswer);
             }
 
         } catch (Exception e) {
-            e.printStackTrace();
+            Log.e(TAG, "Error in simpleCalculatorExample", e);
+            throw e; // 重新抛出异常，让调用者处理
         }
     }
 
     /**
      * 支持多种数学问题的演示
      */
-    public void multipleCalculationsExample() {
+    public void multipleCalculationsExample() throws IOException, JSONException {
         String[] questions = {
                 "0.5125456 乘以 0.8865495 等于多少？",
                 "100 减去 45 是多少？",
@@ -125,7 +137,7 @@ public class DeepSeekCalculatorDemo {
         };
 
         for (String question : questions) {
-            System.out.println("\n=== 新问题 ===");
+            Log.d(TAG, "\n=== 新问题 ===");
             processCalculation(question);
         }
     }
@@ -133,11 +145,11 @@ public class DeepSeekCalculatorDemo {
     /**
      * 处理单个计算问题
      */
-    private void processCalculation(String question) {
+    private void processCalculation(String question) throws IOException, JSONException {
         try {
             List<JSONObject> messages = new ArrayList<>();
 
-            System.out.println("👤 用户: " + question);
+            Log.d(TAG, "👤 用户: " + question);
 
             JSONObject userMessage = new JSONObject();
             userMessage.put("role", "user");
@@ -153,18 +165,18 @@ public class DeepSeekCalculatorDemo {
             messages.add(assistantMessage);
 
             if (assistantMessage.has("tool_calls")) {
-                JSONArray toolCalls = assistantMessage.getJSONArray("tool_calls");
-                JSONObject toolCall = toolCalls.getJSONObject(0);
+                // 使用 ToolAdapter 的 processToolCalls 方法处理整个 assistantMessage
+                List<JSONObject> toolResponseMessages = toolAdapter.processToolCalls(assistantMessage);
 
-                String result = executeCalculator(toolCall);
-                System.out.println("🧮 计算: " + result);
+                // 将每个工具响应添加到消息列表中
+                for (JSONObject toolResponseMessage : toolResponseMessages) {
+                    // 提取内容用于日志输出
+                    String result = toolResponseMessage.getString("content");
+                    Log.d(TAG, "🧮 计算: " + result);
 
-                // 添加工具结果
-                JSONObject toolMessage = new JSONObject();
-                toolMessage.put("role", "tool");
-                toolMessage.put("tool_call_id", toolCall.getString("id"));
-                toolMessage.put("content", result);
-                messages.add(toolMessage);
+                    // 将格式化后的工具响应消息添加到对话历史中
+                    messages.add(toolResponseMessage);
+                }
 
                 // 第二次调用
                 JSONObject finalResponse = sendMessages(messages, CALCULATOR_TOOLS);
@@ -173,74 +185,12 @@ public class DeepSeekCalculatorDemo {
                         .getJSONObject("message")
                         .getString("content");
 
-                System.out.println("🤖 AI助手: " + finalAnswer);
+                Log.d(TAG, "🤖 AI助手: " + finalAnswer);
             }
 
         } catch (Exception e) {
-            System.out.println("❌ 处理失败: " + e.getMessage());
-        }
-    }
-
-    /**
-     * 执行计算器工具
-     */
-    private String executeCalculator(JSONObject toolCall) throws JSONException {
-        JSONObject function = toolCall.getJSONObject("function");
-        String functionName = function.getString("name");
-        JSONObject arguments = new JSONObject(function.getString("arguments"));
-
-        if ("calculate".equals(functionName)) {
-            String expression = arguments.getString("expression");
-            return calculateExpression(expression);
-        }
-
-        return "未知的计算函数";
-    }
-
-    /**
-     * 实际执行数学计算
-     */
-    private String calculateExpression(String expression) {
-        try {
-            // 简单的表达式计算（实际项目中可以使用 ScriptEngine 等更安全的方式）
-            expression = expression.replace(" ", "").toLowerCase();
-
-            // 处理基本运算
-            if (expression.contains("+")) {
-                String[] parts = expression.split("\\+");
-                double result = Double.parseDouble(parts[0]) + Double.parseDouble(parts[1]);
-                System.out.println("执行了加法");
-                return String.valueOf(result);
-            } else if (expression.contains("-")) {
-                String[] parts = expression.split("-");
-                double result = Double.parseDouble(parts[0]) - Double.parseDouble(parts[1]);
-                return String.valueOf(result);
-            } else if (expression.contains("*") || expression.contains("×")) {
-                expression = expression.replace("×", "*");
-                String[] parts = expression.split("\\*");
-                double result = Double.parseDouble(parts[0]) * Double.parseDouble(parts[1]);
-                System.out.println("执行了乘法");
-                return String.valueOf(result);
-            } else if (expression.contains("/") || expression.contains("÷")) {
-                expression = expression.replace("÷", "/");
-                String[] parts = expression.split("/");
-                if (Double.parseDouble(parts[1]) == 0) {
-                    return "错误：除数不能为零";
-                }
-                double result = Double.parseDouble(parts[0]) / Double.parseDouble(parts[1]);
-                return String.valueOf(result);
-            } else if (expression.contains("^")) {
-                String[] parts = expression.split("\\^");
-                double base = Double.parseDouble(parts[0]);
-                double exponent = Double.parseDouble(parts[1]);
-                double result = Math.pow(base, exponent);
-                return String.valueOf(result);
-            }
-
-            return "无法计算的表达式: " + expression;
-
-        } catch (Exception e) {
-            return "计算错误: " + e.getMessage();
+            Log.e(TAG, "❌ 处理失败: " + e.getMessage(), e);
+            throw e; // 重新抛出异常，让调用者处理
         }
     }
 
@@ -265,7 +215,7 @@ public class DeepSeekCalculatorDemo {
         Request request = new Request.Builder()
                 .url(API_URL)
                 .post(body)
-                .addHeader("Authorization", "Bearer " + API_KEY)
+                .addHeader("Authorization", "Bearer " + apiKey)
                 .addHeader("Content-Type", "application/json")
                 .build();
 
@@ -278,23 +228,4 @@ public class DeepSeekCalculatorDemo {
         String responseBody = response.body().string();
         return new JSONObject(responseBody);
     }
-
-    /**
-     * 主方法 - 测试演示
-     */
-//    public static void main(String[] args) {
-//        DeepSeekCalculatorDemo demo = new DeepSeekCalculatorDemo();
-//
-//        System.out.println("🧮 DeepSeek 计算器 Function Calling 演示");
-//        System.out.println("=" .repeat(50));
-//
-//        // 演示单个计算
-//        demo.simpleCalculatorExample();
-//
-//        System.out.println("\n" + "=" .repeat(50));
-//        System.out.println("🔢 多个计算演示");
-//
-//        // 演示多个计算
-//        demo.multipleCalculationsExample();
-//    }
 }

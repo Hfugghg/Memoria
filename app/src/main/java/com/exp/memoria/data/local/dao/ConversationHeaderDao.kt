@@ -32,4 +32,13 @@ interface ConversationHeaderDao {
 
     @Query("UPDATE conversation_header SET totalTokenCount = :totalTokenCount WHERE conversationId = :conversationId")
     suspend fun updateTotalTokenCount(conversationId: String, totalTokenCount: Int)
+
+    @Query("UPDATE conversation_header SET tokenThresholdOneThirdId = :tokenThresholdOneThirdId WHERE conversationId = :conversationId")
+    suspend fun updateTokenThresholdOneThirdId(conversationId: String, tokenThresholdOneThirdId: Long?)
+
+    @Query("UPDATE conversation_header SET tokenThresholdTwoThirdsId = :tokenThresholdTwoThirdsId WHERE conversationId = :conversationId")
+    suspend fun updateTokenThresholdTwoThirdsId(conversationId: String, tokenThresholdTwoThirdsId: Long?)
+
+    @Query("UPDATE conversation_header SET contextCompactionRequired = :contextCompactionRequired WHERE conversationId = :conversationId")
+    suspend fun updateContextCompactionRequired(conversationId: String, contextCompactionRequired: Boolean)
 }

@@ -4,8 +4,7 @@ import org.junit.Test;
 
 import okhttp3.*;
 import java.io.IOException;
-import org.json.JSONObject;
-import org.json.JSONArray;
+
 public class DeepSeekDemoTest {
     private static final String API_KEY =System.getenv("DEEPSEEK_API_KEY"); // 替换为真实 API 密钥
     private static final String API_URL = "https://api.deepseek.com/v1/chat/completions";

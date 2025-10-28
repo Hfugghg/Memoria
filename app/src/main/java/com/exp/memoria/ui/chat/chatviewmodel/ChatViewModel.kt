@@ -169,14 +169,14 @@ class ChatViewModel @Inject constructor(
 
     fun updateMessageSummary(messageId: UUID, newSummary: String) {
         viewModelScope.launch {
-            var memoryIdToUpdate: Long? = null
-            var originalSummary: String? = null
+            val originalMessage = _uiState.value.messages.find { it.id == messageId } ?: return@launch
+            val memoryIdToUpdate = originalMessage.memoryId ?: return@launch
+            val originalSummary = originalMessage.summary
 
+            // 1. 乐观更新UI
             _uiState.update { currentState ->
                 val updatedMessages = currentState.messages.map { message ->
                     if (message.id == messageId) {
-                        memoryIdToUpdate = message.memoryId
-                        originalSummary = message.summary
                         message.copy(summary = newSummary)
                     } else {
                         message
@@ -185,20 +185,21 @@ class ChatViewModel @Inject constructor(
                 currentState.copy(messages = updatedMessages)
             }
 
-            memoryIdToUpdate?.let { memoryId ->
-                try {
-                    memoryRepository.updateMemorySummary(memoryId, newSummary)
-                } catch (_: Exception) {
-                    _uiState.update { currentState ->
-                        val restoredMessages = currentState.messages.map { message ->
-                            if (message.id == messageId) {
-                                message.copy(summary = originalSummary)
-                            } else {
-                                message
-                            }
+            // 2. 尝试更新数据库
+            try {
+                memoryRepository.updateMemorySummary(memoryIdToUpdate, newSummary)
+            } catch (e: Exception) {
+                Log.e("ChatViewModel", "摘要更新失败，正在回滚UI。", e)
+                // 3. 如果失败，回滚UI
+                _uiState.update { currentState ->
+                    val restoredMessages = currentState.messages.map { message ->
+                        if (message.id == messageId) {
+                            message.copy(summary = originalSummary)
+                        } else {
+                            message
                         }
-                        currentState.copy(messages = restoredMessages)
                     }
+                    currentState.copy(messages = restoredMessages)
                 }
             }
         }

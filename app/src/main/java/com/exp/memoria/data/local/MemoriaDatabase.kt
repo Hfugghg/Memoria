@@ -34,7 +34,7 @@ import com.exp.memoria.data.local.entity.RawMemory
  */
 @Database(
     entities = [RawMemory::class, CondensedMemory::class, FTSMemoryIndex::class, ConversationHeader::class, MessageFile::class],
-    version = 5, // 数据库版本从 4 增加到 5
+    version = 7, // 数据库版本从 6 增加到 7
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -108,6 +108,17 @@ abstract class MemoriaDatabase : RoomDatabase() {
             }
         }
 
+        // =====================================================================================
+        // !!! 重要的数据库迁移提示,不得删除 !!!
+        // 每次修改数据库结构（例如：添加/删除表、添加/删除列、修改列类型等）时，
+        // 都必须执行以下步骤：
+        // 1. 增加 @Database 注解中的 'version' 号。
+        // 2. 为新的版本号创建对应的 MIGRATION 对象（例如：MIGRATION_X_Y）。
+        // 3. 在 AppModule (或任何构建 Room 数据库实例的地方) 中，
+        //    使用 `Room.databaseBuilder().addMigrations(...)` 方法添加新的 MIGRATION 对象。
+        // 否则，应用在升级时会遇到 `IllegalStateException`。
+        // =====================================================================================
+
         // 数据库迁移，从版本 1 到版本 2
         val MIGRATION_1_2 = object : Migration(1, 2) {
             override fun migrate(db: SupportSQLiteDatabase) {
@@ -152,6 +163,25 @@ abstract class MemoriaDatabase : RoomDatabase() {
                 """.trimIndent())
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_message_files_rawMemoryId` ON `message_files` (`rawMemoryId`)")
                 Log.d(TAG, "MIGRATION_4_5 完成。")
+            }
+        }
+
+        // 数据库迁移，从版本 5 到版本 6：为 conversation_header 表添加 tokenThresholdOneThirdId 和 tokenThresholdTwoThirdsId 列
+        val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                Log.d(TAG, "执行 MIGRATION_5_6: 为 conversation_header 表添加 tokenThresholdOneThirdId 和 tokenThresholdTwoThirdsId 列")
+                db.execSQL("ALTER TABLE conversation_header ADD COLUMN tokenThresholdOneThirdId INTEGER DEFAULT NULL")
+                db.execSQL("ALTER TABLE conversation_header ADD COLUMN tokenThresholdTwoThirdsId INTEGER DEFAULT NULL")
+                Log.d(TAG, "MIGRATION_5_6 完成。")
+            }
+        }
+
+        // 数据库迁移，从版本 6 到版本 7：为 conversation_header 表添加 contextCompactionRequired 列
+        val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                Log.d(TAG, "执行 MIGRATION_6_7: 为 conversation_header 表添加 contextCompactionRequired 列")
+                db.execSQL("ALTER TABLE conversation_header ADD COLUMN contextCompactionRequired INTEGER NOT NULL DEFAULT 0")
+                Log.d(TAG, "MIGRATION_6_7 完成。")
             }
         }
     }

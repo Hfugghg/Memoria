@@ -11,13 +11,7 @@ import com.exp.memoria.data.local.dao.MessageFileDao
 import com.exp.memoria.data.local.dao.RawMemoryDao
 import com.exp.memoria.data.remote.api.LlmApiService
 import com.exp.memoria.data.repository.*
-import com.exp.memoria.data.repository.impl.ChatServiceImpl
-import com.exp.memoria.data.repository.impl.ConversationRepositoryImpl
-import com.exp.memoria.data.repository.impl.FileAttachmentRepositoryImpl
-import com.exp.memoria.data.repository.impl.MemoryRepositoryImpl
-import com.exp.memoria.data.repository.impl.MessageRepositoryImpl
-import com.exp.memoria.data.repository.impl.SettingsRepositoryImpl
-import com.exp.memoria.data.repository.impl.UtilityServiceImpl
+import com.exp.memoria.data.repository.impl.*
 import com.exp.memoria.domain.usecase.GetChatResponseUseCase
 import com.exp.memoria.domain.usecase.ProcessMemoryUseCase
 import dagger.Module
@@ -49,8 +43,8 @@ object AppModule {
     //    但为了清晰和保证单例，建议保留)
     @Provides
     @Singleton
-    fun provideLlmRepositoryHelpers(settingsRepository: SettingsRepository): LlmRepositoryHelpers {
-        return LlmRepositoryHelpers(settingsRepository)
+    fun provideLlmRepositoryHelpers(settingsRepository: SettingsRepository, llmApiService: LlmApiService): LlmRepositoryHelpers {
+        return LlmRepositoryHelpers(settingsRepository, llmApiService)
     }
 
     // 2. 提供 ChatService 实例 (委托给 ChatServiceImpl)
@@ -130,9 +124,10 @@ object AppModule {
     @Provides
     fun provideGetChatResponseUseCase(
         memoryRepository: MemoryRepository,
-        llmRepository: LlmRepository
+        llmRepository: LlmRepository,
+        llmRepositoryHelpers: LlmRepositoryHelpers // 添加 LlmRepositoryHelpers
     ): GetChatResponseUseCase {
-        return GetChatResponseUseCase(memoryRepository, llmRepository)
+        return GetChatResponseUseCase(memoryRepository, llmRepository, llmRepositoryHelpers)
     }
 
     @Provides
