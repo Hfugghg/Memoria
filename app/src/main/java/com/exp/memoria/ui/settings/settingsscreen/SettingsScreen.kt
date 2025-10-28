@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.exp.memoria.ui.settings.SettingsViewModel
 import com.exp.memoria.utils.DatabaseUtils
+import kotlinx.coroutines.launch
 
 /**
  * ## 设置界面的主 Composable UI
@@ -56,6 +57,8 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
     val graphicalSchemaProperties by viewModel.graphicalSchemaProperties.collectAsState()
     val draftProperty by viewModel.draftProperty.collectAsState() // 获取草稿属性
     val context = LocalContext.current
+
+    val scope = rememberCoroutineScope() // 添加协程作用域
 
     // State for managing system instruction dialogs
     var showAddInstructionDialog by remember { mutableStateOf(false) }
@@ -396,30 +399,30 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
             // 安全设置区域
             SafetySettingsSection(
                 harassmentValue = settings.harassment,
-                onHarassmentChange = viewModel::onHarassmentChange,
+                onHarassmentChange = { value -> scope.launch { viewModel.onHarassmentChange(value) } },
                 hateSpeechValue = settings.hateSpeech,
-                onHateSpeechChange = viewModel::onHateSpeechChange,
+                onHateSpeechChange = { value -> scope.launch { viewModel.onHateSpeechChange(value) } },
                 sexuallyExplicitValue = settings.sexuallyExplicit,
-                onSexuallyExplicitChange = viewModel::onSexuallyExplicitChange,
+                onSexuallyExplicitChange = { value -> scope.launch { viewModel.onSexuallyExplicitChange(value) } },
                 dangerousContentValue = settings.dangerousContent,
-                onDangerousContentChange = viewModel::onDangerousContentChange
+                onDangerousContentChange = { value -> scope.launch { viewModel.onDangerousContentChange(value) } }
             )
 
             // 生成配置
             GenerationConfigSection(
                 settings = settings,
-                onTemperatureChange = viewModel::onTemperatureChange,
-                onTopPChange = viewModel::onTopPChange,
-                onTopKChange = viewModel::onTopKChange,
-                onMaxOutputTokensChange = viewModel::onMaxOutputTokensChange,
-                onStopSequencesChange = viewModel::onStopSequencesChange,
-                onFrequencyPenaltyChange = viewModel::onFrequencyPenaltyChange,
-                onPresencePenaltyChange = viewModel::onPresencePenaltyChange,
-                onCandidateCountChange = viewModel::onCandidateCountChange,
-                onSeedChange = viewModel::onSeedChange,
-                onResponseMimeTypeChange = viewModel::onResponseMimeTypeChange,
-                onResponseLogprobsChange = viewModel::onResponseLogprobsChange,
-                onOutputDimensionalityChange = viewModel::onOutputDimensionalityChange
+                onTemperatureChange = { value -> scope.launch { viewModel.onTemperatureChange(value) } },
+                onTopPChange = { value -> scope.launch { viewModel.onTopPChange(value) } },
+                onTopKChange = { value -> scope.launch { viewModel.onTopKChange(value) } },
+                onMaxOutputTokensChange = { value -> scope.launch { viewModel.onMaxOutputTokensChange(value) } },
+                onStopSequencesChange = { value -> scope.launch { viewModel.onStopSequencesChange(value) } },
+                onFrequencyPenaltyChange = { value -> scope.launch { viewModel.onFrequencyPenaltyChange(value) } },
+                onPresencePenaltyChange = { value -> scope.launch { viewModel.onPresencePenaltyChange(value) } },
+                onCandidateCountChange = { value -> scope.launch { viewModel.onCandidateCountChange(value) } },
+                onSeedChange = { value -> scope.launch { viewModel.onSeedChange(value) } },
+                onResponseMimeTypeChange = { value -> scope.launch { viewModel.onResponseMimeTypeChange(value) } },
+                onResponseLogprobsChange = { value -> scope.launch { viewModel.onResponseLogprobsChange(value) } },
+                onOutputDimensionalityChange = { value -> scope.launch { viewModel.onOutputDimensionalityChange(value) } }
             )
         }
     }

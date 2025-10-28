@@ -13,6 +13,7 @@ import androidx.compose.ui.unit.dp
 import com.exp.memoria.ui.settings.JsonSchemaProperty
 import com.exp.memoria.ui.settings.JsonSchemaPropertyType
 import com.exp.memoria.ui.settings.StringFormat
+import kotlinx.coroutines.launch
 
 /**
  * ## JSON Schema 属性编辑器 Composable
@@ -23,23 +24,25 @@ import com.exp.memoria.ui.settings.StringFormat
  * ### 主要职责:
  * 1.  **显示属性**: 在卡片中清晰地展示一个属性的所有可编辑字段。
  * 2.  **处理输入**: 提供 `OutlinedTextField`、`ExposedDropdownMenuBox` 等控件来接收用户输入。
- * 3.  **状态提升**: 不持有自己的状态，而是通过 `onPropertyChange` 和 `onDeleteProperty` 回调将用户操作通知给父 Composable。
+ * 3.  **状态提升**: 不持有自己的状态，而是通过 `onPropertyChange` 和 `onDeleteProperty` 挂起函数将用户操作通知给父 Composable。
  * 4.  **条件 UI**: 根据属性的类型（`STRING`, `NUMBER` 等）动态显示或隐藏相关的设置字段。
  * 5.  **输入验证**: 对属性名进行简单的格式验证（只允许英文和数字）。
  *
  * @param property 需要编辑的 `JsonSchemaProperty` 对象。
- * @param onPropertyChange 当属性的任何字段发生变化时调用的回调函数，它会返回一个更新后的 `JsonSchemaProperty` 副本。
- * @param onDeleteProperty 当删除按钮被点击时调用的回调函数，传递当前属性的 ID。
+ * @param onPropertyChange 当属性的任何字段发生变化时调用的挂起函数，它会返回一个更新后的 `JsonSchemaProperty` 副本。
+ * @param onDeleteProperty 当删除按钮被点击时调用的挂起函数，传递当前属性的 ID。
  * @param showDeleteButton 一个布尔值，用于控制是否显示删除按钮。这使得该组件可以同时用于“草稿”编辑（不显示删除）和列表项编辑（显示删除）。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun JsonSchemaPropertyEditor(
     property: JsonSchemaProperty,
-    onPropertyChange: (JsonSchemaProperty) -> Unit,
-    onDeleteProperty: (Long) -> Unit,
+    onPropertyChange: suspend (JsonSchemaProperty) -> Unit,
+    onDeleteProperty: suspend (Long) -> Unit,
     showDeleteButton: Boolean = true // 默认显示删除按钮
 ) {
+    val scope = rememberCoroutineScope()
+
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
             // 顶部行：属性名和删除按钮
@@ -50,7 +53,7 @@ fun JsonSchemaPropertyEditor(
             ) {
                 Text(property.name.ifBlank { "新属性" }, style = MaterialTheme.typography.titleSmall)
                 if (showDeleteButton) {
-                    IconButton(onClick = { onDeleteProperty(property.id) }) {
+                    IconButton(onClick = { scope.launch { onDeleteProperty(property.id) } }) {
                         Icon(Icons.Default.Delete, contentDescription = "删除属性")
                     }
                 }
@@ -61,11 +64,13 @@ fun JsonSchemaPropertyEditor(
             OutlinedTextField(
                 value = property.name,
                 onValueChange = { newValue ->
-                    // 验证：仅允许输入英文和数字
-                    if (newValue.matches(Regex("^[a-zA-Z0-9]*$"))) {
-                        onPropertyChange(property.copy(name = newValue))
-                    } else if (newValue.isBlank()) {
-                        onPropertyChange(property.copy(name = ""))
+                    scope.launch {
+                        // 验证：仅允许输入英文和数字
+                        if (newValue.matches(Regex("^[a-zA-Z0-9]*$"))) {
+                            onPropertyChange(property.copy(name = newValue))
+                        } else if (newValue.isBlank()) {
+                            onPropertyChange(property.copy(name = ""))
+                        }
                     }
                 },
                 label = { Text("属性名 (英文)") },
@@ -100,7 +105,7 @@ fun JsonSchemaPropertyEditor(
                         DropdownMenuItem(
                             text = { Text(type.displayName) },
                             onClick = {
-                                onPropertyChange(property.copy(type = type))
+                                scope.launch { onPropertyChange(property.copy(type = type)) }
                                 expanded = false
                             }
                         )
@@ -117,7 +122,7 @@ fun JsonSchemaPropertyEditor(
             // 描述输入框
             OutlinedTextField(
                 value = property.description,
-                onValueChange = { onPropertyChange(property.copy(description = it)) },
+                onValueChange = { scope.launch { onPropertyChange(property.copy(description = it)) } },
                 label = { Text("描述") },
                 modifier = Modifier.fillMaxWidth(),
                 minLines = 2
@@ -151,7 +156,7 @@ fun JsonSchemaPropertyEditor(
                                 DropdownMenuItem(
                                     text = { Text(format.displayName) },
                                     onClick = {
-                                        onPropertyChange(property.copy(stringFormat = format))
+                                        scope.launch { onPropertyChange(property.copy(stringFormat = format)) }
                                         formatExpanded = false
                                     }
                                 )
@@ -170,8 +175,10 @@ fun JsonSchemaPropertyEditor(
                     OutlinedTextField(
                         value = property.numberMinimum?.toString() ?: "",
                         onValueChange = { newValue ->
-                            val doubleValue = newValue.toDoubleOrNull()
-                            onPropertyChange(property.copy(numberMinimum = doubleValue))
+                            scope.launch {
+                                val doubleValue = newValue.toDoubleOrNull()
+                                onPropertyChange(property.copy(numberMinimum = doubleValue))
+                            }
                         },
                         label = { Text("最小值") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
@@ -181,8 +188,10 @@ fun JsonSchemaPropertyEditor(
                     OutlinedTextField(
                         value = property.numberMaximum?.toString() ?: "",
                         onValueChange = { newValue ->
-                            val doubleValue = newValue.toDoubleOrNull()
-                            onPropertyChange(property.copy(numberMaximum = doubleValue))
+                            scope.launch {
+                                val doubleValue = newValue.toDoubleOrNull()
+                                onPropertyChange(property.copy(numberMaximum = doubleValue))
+                            }
                         },
                         label = { Text("最大值") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),

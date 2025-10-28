@@ -208,110 +208,88 @@ class SettingsViewModel @Inject constructor(
      * 当温度滑块值改变时调用。
      * @param temperature 新的温度值。
      */
-    fun onTemperatureChange(temperature: Float) {
-        viewModelScope.launch {
-            settingsRepository.updateTemperature(temperature)
-        }
+    suspend fun onTemperatureChange(temperature: Float) {
+        settingsRepository.updateTemperature(temperature)
     }
 
     /**
      * 当 Top-P 滑块值改变时调用。
      * @param topP 新的 Top-P 值。
      */
-    fun onTopPChange(topP: Float) {
-        viewModelScope.launch {
-            settingsRepository.updateTopP(topP)
-        }
+    suspend fun onTopPChange(topP: Float) {
+        settingsRepository.updateTopP(topP)
     }
 
     /**
      * 当 Top-K 值改变时调用。
      * @param topK 新的 Top-K 值。
      */
-    fun onTopKChange(topK: Int?) {
-        viewModelScope.launch {
-            settingsRepository.updateTopK(topK)
-        }
+    suspend fun onTopKChange(topK: Int?) {
+        settingsRepository.updateTopK(topK)
     }
 
     /**
      * 当最大输出 Token 值改变时调用。
      * @param maxOutputTokens 新的最大输出 Token 值。
      */
-    fun onMaxOutputTokensChange(maxOutputTokens: Int?) {
-        viewModelScope.launch {
-            settingsRepository.updateMaxOutputTokens(maxOutputTokens)
-        }
+    suspend fun onMaxOutputTokensChange(maxOutputTokens: Int?) {
+        settingsRepository.updateMaxOutputTokens(maxOutputTokens)
     }
 
     /**
      * 当停止序列输入框内容改变时调用。
      * @param stopSequences 新的停止序列字符串。
      */
-    fun onStopSequencesChange(stopSequences: String) {
-        viewModelScope.launch {
-            settingsRepository.updateStopSequences(stopSequences)
-        }
+    suspend fun onStopSequencesChange(stopSequences: String) {
+        settingsRepository.updateStopSequences(stopSequences)
     }
 
     /**
      * 当 Response MIME Type 输入框内容改变时调用。
      * @param responseMimeType 新的 Response MIME Type。
      */
-    fun onResponseMimeTypeChange(responseMimeType: String) {
-        viewModelScope.launch {
-            settingsRepository.updateResponseMimeType(responseMimeType)
-        }
+    suspend fun onResponseMimeTypeChange(responseMimeType: String) {
+        settingsRepository.updateResponseMimeType(responseMimeType)
     }
 
     /**
      * 当 Response Logprobs 开关状态改变时调用。
      * @param responseLogprobs 新的布尔值。
      */
-    fun onResponseLogprobsChange(responseLogprobs: Boolean) {
-        viewModelScope.launch {
-            settingsRepository.updateResponseLogprobs(responseLogprobs)
-        }
+    suspend fun onResponseLogprobsChange(responseLogprobs: Boolean) {
+        settingsRepository.updateResponseLogprobs(responseLogprobs)
     }
 
     /**
      * 当频率惩罚值改变时调用。
      * @param frequencyPenalty 新的频率惩罚值。
      */
-    fun onFrequencyPenaltyChange(frequencyPenalty: Float) {
-        viewModelScope.launch {
-            settingsRepository.updateFrequencyPenalty(frequencyPenalty)
-        }
+    suspend fun onFrequencyPenaltyChange(frequencyPenalty: Float) {
+        settingsRepository.updateFrequencyPenalty(frequencyPenalty)
     }
 
     /**
      * 当存在惩罚值改变时调用。
      * @param presencePenalty 新的存在惩罚值。
      */
-    fun onPresencePenaltyChange(presencePenalty: Float) {
-        viewModelScope.launch {
-            settingsRepository.updatePresencePenalty(presencePenalty)
-        }
+    suspend fun onPresencePenaltyChange(presencePenalty: Float) {
+        settingsRepository.updatePresencePenalty(presencePenalty)
     }
 
     /**
      * 当候选数量值改变时调用。
      * @param candidateCount 新的候选数量值。
      */
-    fun onCandidateCountChange(candidateCount: Int) {
-        viewModelScope.launch {
-            settingsRepository.updateCandidateCount(candidateCount)
-        }
+    suspend fun onCandidateCountChange(candidateCount: Int) {
+        settingsRepository.updateCandidateCount(candidateCount)
     }
 
     /**
      * 当随机种子值改变时调用。
      * @param seed 新的随机种子值。
      */
-    fun onSeedChange(seed: Int?) {
-        viewModelScope.launch {
-            settingsRepository.updateSeed(seed)
-        }
+    suspend fun onSeedChange(seed: Int?) {
+        settingsRepository.updateSeed(seed)
     }
 
     /**
@@ -348,50 +326,40 @@ class SettingsViewModel @Inject constructor(
      * 当“骚扰”安全等级滑块值改变时调用。
      * @param value 新的阈值。
      */
-    fun onHarassmentChange(value: Float) {
-        viewModelScope.launch {
-            settingsRepository.updateHarassment(value)
-        }
+    suspend fun onHarassmentChange(value: Float) {
+        settingsRepository.updateHarassment(value)
     }
 
     /**
      * 当“仇恨言论”安全等级滑块值改变时调用。
      * @param value 新的阈值。
      */
-    fun onHateSpeechChange(value: Float) {
-        viewModelScope.launch {
-            settingsRepository.updateHateSpeech(value)
-        }
+    suspend fun onHateSpeechChange(value: Float) {
+        settingsRepository.updateHateSpeech(value)
     }
 
     /**
      * 当“色情内容”安全等级滑块值改变时调用。
      * @param value 新的阈值。
      */
-    fun onSexuallyExplicitChange(value: Float) {
-        viewModelScope.launch {
-            settingsRepository.updateSexuallyExplicit(value)
-        }
+    suspend fun onSexuallyExplicitChange(value: Float) {
+        settingsRepository.updateSexuallyExplicit(value)
     }
 
     /**
      * 当“危险内容”安全等级滑块值改变时调用。
      * @param value 新的阈值。
      */
-    fun onDangerousContentChange(value: Float) {
-        viewModelScope.launch {
-            settingsRepository.updateDangerousContent(value)
-        }
+    suspend fun onDangerousContentChange(value: Float) {
+        settingsRepository.updateDangerousContent(value)
     }
 
     /**
      * 当 outputDimensionality 值改变时调用。
      * @param outputDimensionality 新的 outputDimensionality 值。
      */
-    fun onOutputDimensionalityChange(outputDimensionality: Int?) {
-        viewModelScope.launch {
-            settingsRepository.updateOutputDimensionality(outputDimensionality)
-        }
+    suspend fun onOutputDimensionalityChange(outputDimensionality: Int?) {
+        settingsRepository.updateOutputDimensionality(outputDimensionality)
     }
 
     /**

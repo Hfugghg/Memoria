@@ -6,8 +6,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.launch
 
 /**
  * ## 安全设置区域 Composable
@@ -18,27 +20,27 @@ import androidx.compose.ui.unit.dp
  * ### 主要职责:
  * 1.  **分组和布局**: 使用 `Card` 将相关的安全设置项包裹起来，与其他设置项区分开。
  * 2.  **委托渲染**: 为每个安全类别（骚扰、仇恨言论等）调用 `SettingSlider` Composable，
- * 并将相应的状态和回调函数传递给它。
+ * 并将相应的状态和挂起函数传递给它。
  *
  * @param harassmentValue 骚扰内容滑块的当前值。
- * @param onHarassmentChange 当骚扰内容滑块值改变时触发的回调。
+ * @param onHarassmentChange 当骚扰内容滑块值改变时触发的挂起函数。
  * @param hateSpeechValue 仇恨言论滑块的当前值。
- * @param onHateSpeechChange 当仇恨言论滑块值改变时触发的回调。
+ * @param onHateSpeechChange 当仇恨言论滑块值改变时触发的挂起函数。
  * @param sexuallyExplicitValue 色情内容滑块的当前值。
- * @param onSexuallyExplicitChange 当色情内容滑块值改变时触发的回调。
+ * @param onSexuallyExplicitChange 当色情内容滑块值改变时触发的挂起函数。
  * @param dangerousContentValue 危险内容滑块的当前值。
- * @param onDangerousContentChange 当危险内容滑块值改变时触发的回调。
+ * @param onDangerousContentChange 当危险内容滑块值改变时触发的挂起函数。
  */
 @Composable
 fun SafetySettingsSection(
     harassmentValue: Float,
-    onHarassmentChange: (Float) -> Unit,
+    onHarassmentChange: suspend (Float) -> Unit,
     hateSpeechValue: Float,
-    onHateSpeechChange: (Float) -> Unit,
+    onHateSpeechChange: suspend (Float) -> Unit,
     sexuallyExplicitValue: Float,
-    onSexuallyExplicitChange: (Float) -> Unit,
+    onSexuallyExplicitChange: suspend (Float) -> Unit,
     dangerousContentValue: Float,
-    onDangerousContentChange: (Float) -> Unit
+    onDangerousContentChange: suspend (Float) -> Unit
 ) {
     Card(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -71,15 +73,16 @@ fun SafetySettingsSection(
  * 1.  **值到文本的转换**: 将传入的浮点数值（0.0f 到 1.0f）转换为用户易于理解的文本描述
  * （如“未指定”、“不屏蔽”、“仅高风险即屏蔽”等）。
  * 2.  **UI 渲染**: 显示标签和转换后的文本，以及一个 `Slider` 组件。
- * 3.  **状态提升**: `Slider` 的值和 `onValueChange` 回调由父 Composable 控制，
+ * 3.  **状态提升**: `Slider` 的值和 `onValueChange` 挂起函数由父 Composable 控制，
  * 使其成为一个无状态的、可重用的组件。
  *
  * @param label 滑块的标签，例如“骚扰内容”。
  * @param value 滑块的当前浮点数值 (0.0f 到 1.0f 之间)。
- * @param onValueChange 当滑块值发生改变时调用的回调函数。
+ * @param onValueChange 当滑块值发生改变时调用的挂起函数。
  */
 @Composable
-private fun SettingSlider(label: String, value: Float, onValueChange: (Float) -> Unit) {
+private fun SettingSlider(label: String, value: Float, onValueChange: suspend (Float) -> Unit) {
+    val scope = rememberCoroutineScope()
     // 将 0.0f-1.0f 的浮点值映射到四个档位，并转换为用户可读的文本
     val levelText = when {
         value < 0.125f -> "未指定"
@@ -92,7 +95,11 @@ private fun SettingSlider(label: String, value: Float, onValueChange: (Float) ->
         Text("$label: $levelText")
         Slider(
             value = value,
-            onValueChange = onValueChange,
+            onValueChange = {
+                scope.launch {
+                    onValueChange(it)
+                }
+            },
             valueRange = 0f..1f,
             steps = 3 // 步数为3，意味着滑块有4个可选位置 (0, 1/3, 2/3, 1)
         )
