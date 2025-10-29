@@ -10,7 +10,7 @@ public class Argon2HasherTest {
     public void test01(){
 
 
-        String hash = Argon2Hasher.argonHash(System.getenv("NAI_USERNAME"),System.getenv("NAI_PASSWORD"),64,"novelai_data_access_key");
+        String hash = Argon2Hasher.argonHash(System.getenv("..."),System.getenv("..."),64,"novelai_data_access_key");
         System.out.println(hash);
     }
 
