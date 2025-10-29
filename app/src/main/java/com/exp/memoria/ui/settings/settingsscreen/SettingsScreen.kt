@@ -3,16 +3,14 @@ package com.exp.memoria.ui.settings.settingsscreen
 import android.content.Context
 import android.util.Log
 import android.widget.Toast
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -24,47 +22,57 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.exp.memoria.ui.settings.ModelSelectionViewModel
+import com.exp.memoria.ui.settings.ResponseSchemaViewModel
 import com.exp.memoria.ui.settings.SettingsViewModel
+import com.exp.memoria.ui.settings.SystemInstructionViewModel
 import com.exp.memoria.utils.DatabaseUtils
 import kotlinx.coroutines.launch
 
 /**
- * ## 设置界面的主 Composable UI
+ * 设置界面的主 Composable UI。
  *
- * 这个 Composable 是设置功能的入口点，负责构建整个设置页面的结构。
+ * 这是设置功能的入口点，负责构建整个设置页面的结构。它通过组合各种子 Composable
+ *（如 [GraphicalSchemaEditor]、[SafetySettingsSection]、[GenerationConfigSection] 等）来形成完整的界面。
  *
  * ### 主要职责:
- * 1.  **UI 骨架**: 使用 `Scaffold` 提供顶栏和内容区域的基本布局。
- * 2.  **状态管理**: 观察来自 `SettingsViewModel` 的 UI 状态 (`Settings`)，并将这些状态传递给子 Composable。
- * 3.  **用户交互**: 处理顶层的用户输入事件，例如文本框输入、开关切换，并将这些事件通知给 `SettingsViewModel`。
- * 4.  **组件组合**: 将各个独立的设置项（如 `GraphicalSchemaEditor`, `SafetySettingsSection`, `GenerationConfigSection` 等）组合在一起，形成完整的界面。
- * 5.  **对话框管理**: 管理和显示“API Key 缺失”和“模型选择”等对话框。
+ * - **UI 骨架**: 使用 `Scaffold` 提供顶栏和内容区域的基本布局。
+ * - **状态管理**: 观察并响应来自各个 ViewModel 的 UI 状态，并将这些状态传递给子 Composable。
+ * - **用户交互**: 处理顶层的用户输入事件（如文本框输入、开关切换），并将这些事件分派给相应的 ViewModel。
+ * - **对话框管理**: 管理和显示“API Key 缺失”和“模型选择”等对话框。
  *
- * @param viewModel `SettingsViewModel` 的实例，通过 Hilt 自动注入，用于提供数据和处理业务逻辑。
+ * @param settingsViewModel 提供通用设置数据和业务逻辑。
+ * @param modelSelectionViewModel 处理模型选择相关的业务逻辑。
+ * @param responseSchemaViewModel 处理响应模式相关的业务逻辑。
+ * @param systemInstructionViewModel 处理系统指令相关的业务逻辑。
+ *
+ * @see SettingsViewModel
+ * @see ModelSelectionViewModel
+ * @see ResponseSchemaViewModel
+ * @see SystemInstructionViewModel
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
+fun SettingsScreen(
+    settingsViewModel: SettingsViewModel = hiltViewModel(),
+    modelSelectionViewModel: ModelSelectionViewModel = hiltViewModel(),
+    responseSchemaViewModel: ResponseSchemaViewModel = hiltViewModel(),
+    systemInstructionViewModel: SystemInstructionViewModel = hiltViewModel()
+) {
     // 从 ViewModel 中收集状态
-    val settings by viewModel.settingsState.collectAsState()
-    val systemInstruction by viewModel.systemInstruction.collectAsState() // Now it's SystemInstruction object
-    val responseSchema by viewModel.responseSchema.collectAsState()
-    val showModelSelectionDialog by viewModel.showModelSelectionDialog.collectAsState()
-    val availableModels by viewModel.availableModels.collectAsState()
-    val isLoadingModels by viewModel.isLoadingModels.collectAsState()
-    val showApiKeyError by viewModel.showApiKeyError.collectAsState()
-    val isGraphicalSchemaMode by viewModel.isGraphicalSchemaMode.collectAsState()
-    val graphicalSchemaProperties by viewModel.graphicalSchemaProperties.collectAsState()
-    val draftProperty by viewModel.draftProperty.collectAsState() // 获取草稿属性
+    val settings by settingsViewModel.settingsState.collectAsState()
+    val systemInstruction by systemInstructionViewModel.systemInstruction.collectAsState() // Now it's SystemInstruction object
+    val responseSchema by responseSchemaViewModel.responseSchema.collectAsState()
+    val showModelSelectionDialog by modelSelectionViewModel.showModelSelectionDialog.collectAsState()
+    val availableModels by modelSelectionViewModel.availableModels.collectAsState()
+    val isLoadingModels by modelSelectionViewModel.isLoadingModels.collectAsState()
+    val showApiKeyError by modelSelectionViewModel.showApiKeyError.collectAsState()
+    val isGraphicalSchemaMode by responseSchemaViewModel.isGraphicalSchemaMode.collectAsState()
+    val graphicalSchemaProperties by responseSchemaViewModel.graphicalSchemaProperties.collectAsState()
+    val draftProperty by responseSchemaViewModel.draftProperty.collectAsState() // 获取草稿属性
     val context = LocalContext.current
 
     val scope = rememberCoroutineScope() // 添加协程作用域
-
-    // State for managing system instruction dialogs
-    var showAddInstructionDialog by remember { mutableStateOf(false) }
-    var showEditInstructionDialog by remember { mutableStateOf(false) }
-    var editingInstructionIndex by remember { mutableStateOf<Int?>(null) }
-    var draftInstructionText by remember { mutableStateOf("") }
 
     // API Key 输入框的本地状态
     var apiKeyInput by remember { mutableStateOf(settings.apiKey) }
@@ -95,7 +103,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
                 value = apiKeyInput,
                 onValueChange = {
                     apiKeyInput = it // 立即更新本地状态，解决粘贴问题
-                    viewModel.onApiKeyChange(it) // 通知 ViewModel 保存
+                    settingsViewModel.onApiKeyChange(it) // 通知 ViewModel 保存
                 },
                 label = { Text("API Key") },
                 modifier = Modifier.fillMaxWidth(),
@@ -118,20 +126,20 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
             // 对话模型选择输入框
             OutlinedTextField(
                 value = settings.chatModel,
-                onValueChange = viewModel::onChatModelChange, // 允许用户手动输入模型名称
+                onValueChange = settingsViewModel::onChatModelChange, // 允许用户手动输入模型名称，并由 settingsViewModel 处理
                 label = { Text("对话模型") },
                 readOnly = false, // 允许手动输入
-                trailingIcon = { // 右侧的下拉箭头图标
+                trailingIcon = {
                     IconButton(onClick = {
                         Log.d("SettingsScreen", "下拉箭头图标被点击。API Key是否为空: ${settings.apiKey.isBlank()}")
-                        // 仅当 API Key 不为空时，才尝试获取模型列表并显示弹窗
+                        // 尝试获取模型。如果 API Key 为空，ViewModel 会处理错误状态。
+                        modelSelectionViewModel.fetchAvailableModels(initialLoad = true)
+                        // 仅当 API Key 不为空时，才显示模型选择弹窗
                         if (settings.apiKey.isNotBlank()) {
-                            viewModel.fetchAvailableModels(initialLoad = true)
-                            viewModel.onShowModelSelectionDialog()
-                            Log.d("SettingsScreen", "尝试获取模型并显示弹窗。")
+                            modelSelectionViewModel.onShowModelSelectionDialog()
+                            Log.d("SettingsScreen", "API Key存在，尝试显示模型选择弹窗。")
                         } else {
-                            viewModel.onShowApiKeyError()
-                            Log.d("SettingsScreen", "API Key 为空，显示错误弹窗。")
+                            Log.d("SettingsScreen", "API Key 为空，ViewModel将处理错误状态。")
                         }
                     }) {
                         Icon(Icons.Default.ArrowDropDown, contentDescription = "选择模型")
@@ -152,7 +160,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
                 Text("图形化编辑模式")
                 Switch(
                     checked = isGraphicalSchemaMode,
-                    onCheckedChange = { viewModel.onToggleGraphicalSchemaMode() }
+                    onCheckedChange = { responseSchemaViewModel.onToggleGraphicalSchemaMode() }
                 )
             }
 
@@ -161,17 +169,17 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
                 GraphicalSchemaEditor(
                     properties = graphicalSchemaProperties,
                     draftProperty = draftProperty,
-                    onDraftPropertyChange = viewModel::onDraftPropertyChange,
-                    onAddProperty = viewModel::addGraphicalSchemaProperty,
-                    onUpdateProperty = viewModel::updateGraphicalSchemaProperty,
-                    onDeleteProperty = viewModel::removeGraphicalSchemaProperty
+                    onDraftPropertyChange = responseSchemaViewModel::onDraftPropertyChange,
+                    onAddProperty = responseSchemaViewModel::addGraphicalSchemaProperty,
+                    onUpdateProperty = responseSchemaViewModel::updateGraphicalSchemaProperty,
+                    onDeleteProperty = responseSchemaViewModel::removeGraphicalSchemaProperty
                 )
             } else {
                 OutlinedTextField(
                     value = responseSchema, // 绑定到新的 ViewModel 状态
-                    onValueChange = viewModel::onResponseSchemaChange,
-                    label = { Text("Response Schema (JSON)") },
-                    placeholder = { Text("例如: {\"type\": \"object\", \"properties\": {\"name\": {\"type\": \"string\"}} }") },
+                    onValueChange = responseSchemaViewModel::onResponseSchemaChange,
+                    label = { Text("Response Schema (JSON)") }, // 标签文本
+                    placeholder = { Text("例如: {\"type\": \"object\", \"properties\": {\"name\": {\"type\": \"string\"}} }") }, // 占位符文本，JSON 字符串中的双引号已转义
                     modifier = Modifier.fillMaxWidth(),
                     minLines = 5
                 )
@@ -189,7 +197,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
                 Text("本地存储")
                 Checkbox(
                     checked = settings.useLocalStorage,
-                    onCheckedChange = viewModel::onUseLocalStorageChange
+                    onCheckedChange = settingsViewModel::onUseLocalStorageChange
                 )
             }
 
@@ -214,7 +222,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
                 Text("流式输出")
                 Switch(
                     checked = settings.isStreamingEnabled,
-                    onCheckedChange = viewModel::onIsStreamingEnabledChange
+                    onCheckedChange = settingsViewModel::onIsStreamingEnabledChange
                 )
             }
 
@@ -235,7 +243,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
                 }
                 Switch(
                     checked = settings.disableSummaryAndEmbedding,
-                    onCheckedChange = viewModel::onDisableSummaryAndEmbeddingChange
+                    onCheckedChange = settingsViewModel::onDisableSummaryAndEmbeddingChange
                 )
             }
 
@@ -243,145 +251,11 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
             Text("LLM 高级设置", style = MaterialTheme.typography.titleLarge)
             Spacer(modifier = Modifier.height(8.dp))
 
-            // System Instruction Section
-            Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-                Text("系统指令", style = MaterialTheme.typography.titleMedium)
-                Spacer(modifier = Modifier.height(8.dp))
-
-                if (systemInstruction.parts.isEmpty()) {
-                    Text("当前没有系统指令。点击下方按钮添加。", style = MaterialTheme.typography.bodyMedium)
-                } else {
-                    LazyColumn(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(max = 200.dp) // Limit height to avoid excessive scrolling
-                    ) {
-                        items(systemInstruction.parts.size) { index ->
-                            val part = systemInstruction.parts[index]
-                            Card(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 4.dp)
-                            ) {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(16.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    Text(
-                                        text = part.text,
-                                        modifier = Modifier.weight(1f)
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    IconButton(onClick = {
-                                        editingInstructionIndex = index
-                                        draftInstructionText = part.text
-                                        showEditInstructionDialog = true
-                                    }) {
-                                        Icon(Icons.Default.Edit, contentDescription = "编辑指令")
-                                    }
-                                    IconButton(onClick = {
-                                        viewModel.removeSystemInstructionPart(index)
-                                    }) {
-                                        Icon(Icons.Default.Delete, contentDescription = "删除指令")
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(8.dp))
-                Button(
-                    onClick = {
-                        draftInstructionText = "" // Clear draft for new instruction
-                        showAddInstructionDialog = true
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Icon(Icons.Default.Add, contentDescription = "添加指令")
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("添加系统指令")
-                }
-            }
-
-            // Add Instruction Dialog
-            if (showAddInstructionDialog) {
-                AlertDialog(
-                    onDismissRequest = { showAddInstructionDialog = false },
-                    title = { Text("添加系统指令") },
-                    text = {
-                        OutlinedTextField(
-                            value = draftInstructionText,
-                            onValueChange = { draftInstructionText = it },
-                            label = { Text("指令内容") },
-                            modifier = Modifier.fillMaxWidth(),
-                            minLines = 3
-                        )
-                    },
-                    confirmButton = {
-                        TextButton(
-                            onClick = {
-                                if (draftInstructionText.isNotBlank()) {
-                                    viewModel.addSystemInstructionPart(draftInstructionText)
-                                    showAddInstructionDialog = false
-                                } else {
-                                    Toast.makeText(context, "指令内容不能为空", Toast.LENGTH_SHORT).show()
-                                }
-                            }
-                        ) {
-                            Text("添加")
-                        }
-                    },
-                    dismissButton = {
-                        TextButton(onClick = { showAddInstructionDialog = false }) {
-                            Text("取消")
-                        }
-                    }
-                )
-            }
-
-            // Edit Instruction Dialog
-            if (showEditInstructionDialog) {
-                AlertDialog(
-                    onDismissRequest = { showEditInstructionDialog = false },
-                    title = { Text("编辑系统指令") },
-                    text = {
-                        OutlinedTextField(
-                            value = draftInstructionText,
-                            onValueChange = { draftInstructionText = it },
-                            label = { Text("指令内容") },
-                            modifier = Modifier.fillMaxWidth(),
-                            minLines = 3
-                        )
-                    },
-                    confirmButton = {
-                        TextButton(
-                            onClick = {
-                                editingInstructionIndex?.let { index ->
-                                    if (draftInstructionText.isNotBlank()) {
-                                        viewModel.updateSystemInstructionPart(index, draftInstructionText)
-                                        showEditInstructionDialog = false
-                                        editingInstructionIndex = null
-                                    } else {
-                                        Toast.makeText(context, "指令内容不能为空", Toast.LENGTH_SHORT).show()
-                                    }
-                                }
-                            }
-                        ) {
-                            Text("保存")
-                        }
-                    },
-                    dismissButton = {
-                        TextButton(onClick = { showEditInstructionDialog = false }) {
-                            Text("取消")
-                        }
-                    }
-                )
-            }
-
+            // 系统指令部分
+            SystemInstructionSection(
+                systemInstruction = systemInstruction,
+                systemInstructionViewModel = systemInstructionViewModel
+            )
 
             Card(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
                 Column(modifier = Modifier.padding(16.dp)) {
@@ -399,30 +273,36 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
             // 安全设置区域
             SafetySettingsSection(
                 harassmentValue = settings.harassment,
-                onHarassmentChange = { value -> scope.launch { viewModel.onHarassmentChange(value) } },
+                onHarassmentChange = { value -> scope.launch { settingsViewModel.onHarassmentChange(value) } },
                 hateSpeechValue = settings.hateSpeech,
-                onHateSpeechChange = { value -> scope.launch { viewModel.onHateSpeechChange(value) } },
+                onHateSpeechChange = { value -> scope.launch { settingsViewModel.onHateSpeechChange(value) } },
                 sexuallyExplicitValue = settings.sexuallyExplicit,
-                onSexuallyExplicitChange = { value -> scope.launch { viewModel.onSexuallyExplicitChange(value) } },
+                onSexuallyExplicitChange = { value -> scope.launch { settingsViewModel.onSexuallyExplicitChange(value) } },
                 dangerousContentValue = settings.dangerousContent,
-                onDangerousContentChange = { value -> scope.launch { viewModel.onDangerousContentChange(value) } }
+                onDangerousContentChange = { value -> scope.launch { settingsViewModel.onDangerousContentChange(value) } }
             )
 
             // 生成配置
             GenerationConfigSection(
                 settings = settings,
-                onTemperatureChange = { value -> scope.launch { viewModel.onTemperatureChange(value) } },
-                onTopPChange = { value -> scope.launch { viewModel.onTopPChange(value) } },
-                onTopKChange = { value -> scope.launch { viewModel.onTopKChange(value) } },
-                onMaxOutputTokensChange = { value -> scope.launch { viewModel.onMaxOutputTokensChange(value) } },
-                onStopSequencesChange = { value -> scope.launch { viewModel.onStopSequencesChange(value) } },
-                onFrequencyPenaltyChange = { value -> scope.launch { viewModel.onFrequencyPenaltyChange(value) } },
-                onPresencePenaltyChange = { value -> scope.launch { viewModel.onPresencePenaltyChange(value) } },
-                onCandidateCountChange = { value -> scope.launch { viewModel.onCandidateCountChange(value) } },
-                onSeedChange = { value -> scope.launch { viewModel.onSeedChange(value) } },
-                onResponseMimeTypeChange = { value -> scope.launch { viewModel.onResponseMimeTypeChange(value) } },
-                onResponseLogprobsChange = { value -> scope.launch { viewModel.onResponseLogprobsChange(value) } },
-                onOutputDimensionalityChange = { value -> scope.launch { viewModel.onOutputDimensionalityChange(value) } }
+                onTemperatureChange = { value -> scope.launch { settingsViewModel.onTemperatureChange(value) } },
+                onTopPChange = { value -> scope.launch { settingsViewModel.onTopPChange(value) } },
+                onTopKChange = { value -> scope.launch { settingsViewModel.onTopKChange(value) } },
+                onMaxOutputTokensChange = { value -> scope.launch { settingsViewModel.onMaxOutputTokensChange(value) } },
+                onStopSequencesChange = { value -> scope.launch { settingsViewModel.onStopSequencesChange(value) } },
+                onFrequencyPenaltyChange = { value -> scope.launch { settingsViewModel.onFrequencyPenaltyChange(value) } },
+                onPresencePenaltyChange = { value -> scope.launch { settingsViewModel.onPresencePenaltyChange(value) } },
+                onCandidateCountChange = { value -> scope.launch { settingsViewModel.onCandidateCountChange(value) } },
+                onSeedChange = { value -> scope.launch { settingsViewModel.onSeedChange(value) } },
+                onResponseMimeTypeChange = { value -> scope.launch { settingsViewModel.onResponseMimeTypeChange(value) } },
+                onResponseLogprobsChange = { value -> scope.launch { settingsViewModel.onResponseLogprobsChange(value) } },
+                onOutputDimensionalityChange = { value ->
+                    scope.launch {
+                        settingsViewModel.onOutputDimensionalityChange(
+                            value
+                        )
+                    }
+                }
             )
         }
     }
@@ -430,11 +310,11 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
     // API Key 错误弹窗
     if (showApiKeyError) {
         AlertDialog(
-            onDismissRequest = viewModel::onDismissApiKeyError,
+            onDismissRequest = modelSelectionViewModel::onDismissApiKeyError,
             title = { Text("API Key 缺失") },
             text = { Text("请先设置您的 API Key 才能获取可用模型列表。") },
             confirmButton = {
-                TextButton(onClick = viewModel::onDismissApiKeyError) {
+                TextButton(onClick = modelSelectionViewModel::onDismissApiKeyError) {
                     Text("确定")
                 }
             }
@@ -442,83 +322,15 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
     }
 
     // 模型选择弹窗
-    if (showModelSelectionDialog) {
-        Log.d("SettingsScreen", "模型选择对话框正在显示。")
-        AlertDialog(
-            onDismissRequest = viewModel::onDismissModelSelectionDialog,
-            title = { Text("选择对话模型") },
-            text = {
-                Column {
-                    // 根据加载状态和模型列表显示不同内容
-                    if (isLoadingModels && availableModels.isEmpty()) {
-                        Log.d("SettingsScreen", "模型正在加载且列表为空。")
-                        CircularProgressIndicator(modifier = Modifier.align(Alignment.CenterHorizontally))
-                    } else if (availableModels.isEmpty()) {
-                        Log.d("SettingsScreen", "模型加载完成但列表为空。")
-                        Text("没有找到可用模型。请检查 API Key 和网络连接。")
-                    } else {
-                        Log.d("SettingsScreen", "模型列表已加载，数量: ${availableModels.size}")
-                        val listState = rememberLazyListState()
-                        LazyColumn(
-                            state = listState,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            items(availableModels) { model ->
-                                // 仅显示支持 generateContent 方法的模型
-                                if (model.supportedGenerationMethods.contains("generateContent")) {
-                                    Column(
-                                        modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clickable {
-                                            viewModel.onChatModelChange(model.name.removePrefix("models/")) // 移除 "models/" 前缀
-                                            viewModel.onDismissModelSelectionDialog()
-                                            Log.d("SettingsScreen", "模型 ${model.displayName} 被选中。")
-                                        }
-                                        .padding(vertical = 8.dp)
-                                    ) {
-                                        Text(text = model.displayName, style = MaterialTheme.typography.titleMedium)
-                                        Text(
-                                            text = "输入Token限制: ${model.inputTokenLimit}",
-                                            style = MaterialTheme.typography.bodySmall
-                                        )
-                                        Text(
-                                            text = "输出Token限制: ${model.outputTokenLimit}",
-                                            style = MaterialTheme.typography.bodySmall
-                                        )
-                                        Spacer(modifier = Modifier.height(4.dp))
-                                    }
-                                }
-                            }
-                            // 加载更多的项目
-                            item {
-                                LaunchedEffect(listState.canScrollForward) {
-                                    // 当滚动到底部、不在加载中且有下一页时，加载更多模型
-                                    if (!listState.canScrollForward && !isLoadingModels && viewModel.nextPageToken.value != null) {
-                                        Log.d("SettingsScreen", "滑动到底部，加载更多模型...")
-                                        viewModel.fetchAvailableModels(initialLoad = false)
-                                    }
-                                }
-                                if (isLoadingModels) {
-                                    Column(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalAlignment = Alignment.CenterHorizontally
-                                    ) {
-                                        Log.d("SettingsScreen", "正在加载更多模型指示器。")
-                                        CircularProgressIndicator(modifier = Modifier.padding(16.dp))
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = viewModel::onDismissModelSelectionDialog) {
-                    Text("关闭")
-                }
-            }
-        )
-    }
+    ModelSelectionDialog(
+        showModelSelectionDialog = showModelSelectionDialog,
+        onDismissModelSelectionDialog = modelSelectionViewModel::onDismissModelSelectionDialog,
+        isLoadingModels = isLoadingModels,
+        availableModels = availableModels,
+        onChatModelChange = settingsViewModel::onChatModelChange,
+        fetchAvailableModels = modelSelectionViewModel::fetchAvailableModels,
+        nextPageToken = modelSelectionViewModel.nextPageToken.collectAsState()
+    )
 }
 
 private fun exportDatabase(context: Context) {
