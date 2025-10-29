@@ -147,4 +147,8 @@ dependencies {
     testImplementation(kotlin("test"))
     testImplementation("androidx.test:core:1.5.0")
     testImplementation("org.json:json:20210307")
+    implementation("org.bouncycastle:bcprov-jdk15on:1.70")
+
+
+
 }
