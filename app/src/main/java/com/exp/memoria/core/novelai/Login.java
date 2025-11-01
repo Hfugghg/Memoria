@@ -48,5 +48,19 @@ public class Login {
         }
     }
 
+    private String test = "Test";
+
+    public String getTest() {
+        return test;
+    }
+
+    public void setTest(String test) {
+        this.test = test;
+    }
+    public String test02() {
+        return  this.test;
+    }
+
+
 
 }

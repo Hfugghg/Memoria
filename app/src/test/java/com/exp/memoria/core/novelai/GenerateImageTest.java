@@ -29,7 +29,7 @@ public class GenerateImageTest {
                 .proxy(proxy)
                 .build();
         Login login = new Login(client);
-        this.key1 = login.login(hash);
+        this.key1 = System.getenv("NAI_ACCESS_KEY");//login.login(hash);
         this.generator = new GenerateImage(client);
     }
 
@@ -41,16 +41,16 @@ public class GenerateImageTest {
         String action = "generate";
 
         Map<String, Object> parameters = new HashMap<>();
-        parameters.put("width", 832);
-        parameters.put("height", 1216);
-        parameters.put("scale", 5.0);
-        parameters.put("sampler", "k_euler");
-        parameters.put("steps", 28);
-        parameters.put("n_samples", 1);
-        parameters.put("seed", 0);
-        parameters.put("ucPreset", 0);
-        parameters.put("qualityToggle", true);
-        parameters.put("uc", negative_prompt);
+        parameters.put("width", 832);//宽
+        parameters.put("height", 1216);//高
+        parameters.put("scale", 5.0);//CFG系数
+        parameters.put("sampler", "k_euler");//
+        parameters.put("steps", 28);//迭代步数
+        parameters.put("n_samples", 1);//生成图像数量
+        parameters.put("seed", 0);//
+        parameters.put("ucPreset", 0);//
+        parameters.put("qualityToggle", true);//
+        parameters.put("uc", negative_prompt);//
 
         try {
             byte[] imageBytes = generator.generateImage(key1, prompt, model, action, parameters, 60, 3);
@@ -77,32 +77,33 @@ public class GenerateImageTest {
         String action = "generate";
 
         Map<String, Object> parameters = new HashMap<>();
-        parameters.put("params_version", 1);
-        parameters.put("width", 832);
-        parameters.put("height", 1216);
-        parameters.put("scale", 5.0);
-        parameters.put("sampler", "k_euler");
-        parameters.put("steps", 28);
-        parameters.put("seed", 0);
-        parameters.put("n_samples", 1);
-        parameters.put("ucPreset", 3);
-        parameters.put("qualityToggle", false);
-        parameters.put("sm", false);
-        parameters.put("sm_dyn", false);
-        parameters.put("dynamic_thresholding", false);
-        parameters.put("controlnet_strength", 1.0);
-        parameters.put("legacy", false);
-        parameters.put("add_original_image", false);
-        parameters.put("cfg_rescale", 0.0);
-        parameters.put("noise_schedule", "native");
-        parameters.put("legacy_v3_extend", false);
-        parameters.put("uncond_scale", 1.0);
-        parameters.put("negative_prompt", negative_prompt);
-        parameters.put("prompt", prompt);
-        parameters.put("reference_image_multiple", new ArrayList<>());
-        parameters.put("reference_information_extracted_multiple", new ArrayList<>());
-        parameters.put("reference_strength_multiple", new ArrayList<>());
-        parameters.put("extra_noise_seed", 0);
+        // V4模型参数
+        parameters.put("params_version", 1); // 参数版本, V4模型固定为1
+        parameters.put("width", 832); // 图像宽度
+        parameters.put("height", 1216); // 图像高度
+        parameters.put("scale", 5.0); // 提示词引导系数 (CFG Scale), 控制与提示词的贴合程度
+        parameters.put("sampler", "k_euler"); // 采样器算法
+        parameters.put("steps", 28); // 迭代步数, 影响细节和生成时间
+        parameters.put("seed", 0); // 随机种子, 相同种子和参数可复现结果
+        parameters.put("n_samples", 1); // 生成图像数量
+        parameters.put("ucPreset", 3); // 负面内容预设, V4推荐值为3, 用于规避通用负面内容
+        parameters.put("qualityToggle", false); // 质量开关, V4中设为false
+        parameters.put("sm", false); // 是否启用SMEA采样技术
+        parameters.put("sm_dyn", false); // 是否启用SMEA+DYN采样技术
+        parameters.put("dynamic_thresholding", false); // 是否启用动态阈值, 防止高CFG时过饱和
+        parameters.put("controlnet_strength", 1.0); // ControlNet强度 (未使用)
+        parameters.put("legacy", false); // 是否启用旧版兼容模式
+        parameters.put("add_original_image", false); // 是否在输出中添加原图(图生图/局部重绘用)
+        parameters.put("cfg_rescale", 0.0); // 引导系数重缩放, 0.0为不启用
+        parameters.put("noise_schedule", "native"); // 噪声表类型
+        parameters.put("legacy_v3_extend", false); // 是否启用V3旧版扩展功能
+        parameters.put("uncond_scale", 1.0); // 负面提示词引导系数
+        parameters.put("negative_prompt", negative_prompt); // 负面提示词
+        parameters.put("prompt", prompt); // 正面提示词
+        parameters.put("reference_image_multiple", new ArrayList<>()); // Vibe Transfer 参考图片列表 (未使用)
+        parameters.put("reference_information_extracted_multiple", new ArrayList<>()); // Vibe Transfer 提取信息列表 (未使用)
+        parameters.put("reference_strength_multiple", new ArrayList<>()); // Vibe Transfer 强度列表 (未使用)
+        parameters.put("extra_noise_seed", 0); // 额外的噪声种子, 用于在主种子基础上产生微调
 
         Map<String, Object> v4_prompt = new HashMap<>();
         v4_prompt.put("use_coords", false);
