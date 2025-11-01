@@ -121,7 +121,9 @@ public class DeepSeekCalculatorDemo {
                 "100 减去 45 是多少？",
                 "12 乘以 15 等于多少？",
                 "144 除以 12 等于多少？",
-                "计算 2 的 10 次方"
+                "计算 2 的 10 次方",
+                "计算 0 除以 10等于多少",
+                "计算 10 除以 0等于多少"
         };
 
         for (String question : questions) {
@@ -279,22 +281,5 @@ public class DeepSeekCalculatorDemo {
         return new JSONObject(responseBody);
     }
 
-    /**
-     * 主方法 - 测试演示
-     */
-//    public static void main(String[] args) {
-//        DeepSeekCalculatorDemo demo = new DeepSeekCalculatorDemo();
-//
-//        System.out.println("🧮 DeepSeek 计算器 Function Calling 演示");
-//        System.out.println("=" .repeat(50));
-//
-//        // 演示单个计算
-//        demo.simpleCalculatorExample();
-//
-//        System.out.println("\n" + "=" .repeat(50));
-//        System.out.println("🔢 多个计算演示");
-//
-//        // 演示多个计算
-//        demo.multipleCalculationsExample();
-//    }
+
 }

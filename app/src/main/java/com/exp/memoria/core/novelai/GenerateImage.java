@@ -1,20 +1,19 @@
 package com.exp.memoria.core.novelai;
 
 import androidx.annotation.NonNull;
-
 import org.json.JSONException;
 import org.json.JSONObject;
-
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.net.Proxy;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
-
 import okhttp3.Interceptor;
 import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
@@ -24,16 +23,31 @@ import okhttp3.Response;
 
 public class GenerateImage {
 
-    private static final String BASE_URL = "https://image.novelai.net";
-    private final OkHttpClient baseClient;
+    private String base_url = "https://image.novelai.net";
+
+
+    public void setBase_url(String base_url) {
+        this.base_url = base_url;
+    }
+    public String getBase_url() {
+        return base_url;
+    }
+
+    //private static final String BASE_URL = "https://image.novelai.net";
+    private  OkHttpClient client;
 
     public GenerateImage(OkHttpClient client) {
-        this.baseClient = client;
+        this.client = client;
     }
 
-    public GenerateImage() {
-        this.baseClient = new OkHttpClient();
-    }
+    //    public GenerateImage(OkHttpClient client) {
+//        this.baseClient = client;
+//    }
+//
+//    public GenerateImage() {
+//        Proxy proxy = new Proxy(Proxy.Type.HTTP, new InetSocketAddress("127.0.0.1", 7897));
+//        this.baseClient = new OkHttpClient.Builder().proxy(proxy).build();
+//    }
 
     public byte[] generateImage(String accessToken, String prompt, String model, String action, Map<String, Object> parameters, Integer timeout, Integer retryCount) throws IOException, JSONException {
         JSONObject data = new JSONObject();
@@ -42,7 +56,7 @@ public class GenerateImage {
         data.put("action", action);
         data.put("parameters", new JSONObject(parameters));
 
-        OkHttpClient.Builder clientBuilder = this.baseClient.newBuilder();
+        OkHttpClient.Builder clientBuilder = this.client.newBuilder();
 
         if (timeout != null) {
             clientBuilder.callTimeout(timeout, TimeUnit.SECONDS);
@@ -56,13 +70,14 @@ public class GenerateImage {
 
         RequestBody body = RequestBody.create(data.toString(), MediaType.get("application/json; charset=utf-8"));
         Request request = new Request.Builder()
-                .url(BASE_URL + "/ai/generate-image")
+                .url(base_url + "/ai/generate-image")
                 .post(body)
                 .addHeader("Authorization", "Bearer " + accessToken)
                 .build();
 
         try (Response response = finalClient.newCall(request).execute()) {
             if (!response.isSuccessful()) {
+                System.out.println("RAW ERROR BODY: " + response.body().string());
                 throw new IOException("Unexpected code " + response);
             }
             if (response.body() == null) {

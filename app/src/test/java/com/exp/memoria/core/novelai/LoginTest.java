@@ -23,7 +23,6 @@ public class LoginTest {
         OkHttpClient client = new OkHttpClient.Builder()
                 .proxy(proxy)
                 .build();
-
         // Create a Login instance with the custom client
         Login login = new Login(client);
 
