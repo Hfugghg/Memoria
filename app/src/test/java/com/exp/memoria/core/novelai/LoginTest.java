@@ -32,6 +32,40 @@ public class LoginTest {
         System.out.println(accessToken);
     }
 
+    @Test
+    public void test02(){
+        Login login = new Login();
+
+        System.out.println(login.getTest());
+    }
+
+    @Test
+    public void test03(){
+        Login login = new Login();
+
+
+
+
+        System.out.println(login.test02());
+    }
+    int test;
+    int test12;
+    @Test
+    public void test04() {
+        if ((test == 0 )&&(true)) {
+            test = 1;
+        }
+        if ((test12 == 0 )&&(true)) {
+            test12 = 2;
+        }
+        System.out.println(test+" "+test12);
+
+    }
+
+
+
+
+
 
 
 
