@@ -40,14 +40,6 @@ public class GenerateImage {
         this.client = client;
     }
 
-    //    public GenerateImage(OkHttpClient client) {
-//        this.baseClient = client;
-//    }
-//
-//    public GenerateImage() {
-//        Proxy proxy = new Proxy(Proxy.Type.HTTP, new InetSocketAddress("127.0.0.1", 7897));
-//        this.baseClient = new OkHttpClient.Builder().proxy(proxy).build();
-//    }
 
     public byte[] generateImage(String accessToken, String prompt, String model, String action, Map<String, Object> parameters, Integer timeout, Integer retryCount) throws IOException, JSONException {
         JSONObject data = new JSONObject();
