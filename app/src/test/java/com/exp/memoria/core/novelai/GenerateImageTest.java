@@ -45,7 +45,7 @@ public class GenerateImageTest {
         parameters.put("height", 1216);//高
         parameters.put("scale", 5.0);//CFG系数
         parameters.put("sampler", "k_euler");//
-        parameters.put("steps", 28);//迭代步数
+        parameters.put("sampler", 28);//迭代步数
         parameters.put("n_samples", 1);//生成图像数量
         parameters.put("seed", 0);//
         parameters.put("ucPreset", 0);//
