@@ -127,8 +127,8 @@ public class LocalTools {
                                             },
                                             "model": {
                                                 "type": "string",
-                                                "description": "模型名称，默认使用 nai-diffusion-3",
-                                                "enum": ["nai-diffusion-3"]
+                                                "description": "模型名称，默认使用 nai-diffusion-4-5-full",
+                                                "enum": ["nai-diffusion-4-5-full"]
                                             },
                                             "width": {
                                                 "type": "integer",
@@ -161,12 +161,12 @@ public class LocalTools {
                                             },
                                             "ucPreset": {
                                                 "type": "integer",
-                                                "description": "负面内容预设，用于规避通用负面内容，范围 0-3，默认 0",
+                                                "description": "负面内容预设，用于规避通用负面内容，范围 0-3，默认 3",
                                                 "enum": [0, 1, 2, 3]
                                             },
                                             "qualityToggle": {
                                                 "type": "boolean",
-                                                "description": "质量开关，开启可提升图像质量，默认 true"
+                                                "description": "质量开关，V4.5模型中建议关闭，默认 false"
                                             },
                                             "uc": {
                                                 "type": "string",
@@ -291,6 +291,22 @@ public class LocalTools {
 
             return novelai3GenerateImage(prompt, model, width, height, scale, sampler,
                     steps, n_samples, seed, ucPreset, qualityToggle, uc);
+        } else if ("novelai4_5_generate_image".equals(functionName)) {
+            String prompt = arguments.getString("prompt");
+            String model = arguments.optString("model", null);
+            int width = arguments.optInt("width", 0);
+            int height = arguments.optInt("height", 0);
+            int scale = arguments.optInt("scale", 0);
+            String sampler = arguments.optString("sampler", null);
+            int steps = arguments.optInt("steps", 0);
+            int n_samples = arguments.optInt("n_samples", 0);
+            int seed = arguments.optInt("seed", 0);
+            int ucPreset = arguments.optInt("ucPreset", 3); // V4.5默认使用3
+            boolean qualityToggle = arguments.optBoolean("qualityToggle", false); // V4.5默认关闭
+            String uc = arguments.optString("uc", null);
+
+            return novelai4_5GenerateImage(prompt, model, width, height, scale, sampler,
+                    steps, n_samples, seed, ucPreset, qualityToggle, uc);
         }
 
         return "未知的图像生成函数";
@@ -358,8 +374,8 @@ public class LocalTools {
         parameters.put("sampler", sampler != null ? sampler : "k_euler");
         parameters.put("steps", (steps <= 0 || steps > 50) ? 28 : steps);
         parameters.put("n_samples", (n_samples <= 0 || n_samples > 4) ? 1 : n_samples);
-        //parameters.put("seed", seed);
-        parameters.put("seed", (seed <= 0 || seed > 2147483647) ? RandomUtils.generateRandomInt() : seed);
+        parameters.put("seed", seed);
+        //parameters.put("seed", ((seed <= 0) || (seed > 2147483647)) ? RandomUtils.generateRandomInt() : seed);
         parameters.put("ucPreset", (ucPreset < 0 || ucPreset > 3) ? 0 : ucPreset);
         parameters.put("qualityToggle", qualityToggle);
         parameters.put("uc", uc != null ? uc : "lowres, bad anatomy, bad hands, text, error, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality, normal quality, jpeg artifacts, signature, watermark, username, blurry");
@@ -383,29 +399,92 @@ public class LocalTools {
         }
     }
 
+    /**
+     * V4.5模型图像生成的函数
+     */
     private String novelai4_5GenerateImage(String prompt, String model, int width, int height,
                                            int scale, String sampler, int steps, int n_samples,
                                            int seed, int ucPreset, boolean qualityToggle, String uc) {
         // 参数验证和默认值设置
         model = (model != null) ? model : "nai-diffusion-4-5-full";
 
+        // 必需参数检查
+        if (prompt == null || prompt.trim().isEmpty()) {
+            return "图像生成失败：提示词不能为空";
+        }
+        if ((seed <= 0) || (seed > 2147483647)) {
+            seed = RandomUtils.generateRandomInt();
+        }
+
+        // 设置V4.5模型特定的参数
         Map<String, Object> parameters = new HashMap<>();
+        parameters.put("params_version", 1); // 参数版本，V4模型固定为1
         parameters.put("width", (width <= 0 || width > 2048) ? 832 : width);
         parameters.put("height", (height <= 0 || height > 2048) ? 1216 : height);
         parameters.put("scale", (scale <= 0 || scale > 10) ? 5 : scale);
         parameters.put("sampler", sampler != null ? sampler : "k_euler");
         parameters.put("steps", (steps <= 0 || steps > 50) ? 28 : steps);
-        parameters.put("n_samples", (n_samples <= 0 || n_samples > 4) ? 1 : n_samples);
         parameters.put("seed", seed);
-        //  parameters.put("seed", (seed <= 0 || seed > 2147483647) ? RandomUtils.generateRandomInt() : seed);
-        parameters.put("ucPreset", (ucPreset < 0 || ucPreset > 3) ? 0 : ucPreset);
-        parameters.put("qualityToggle", qualityToggle);
+        //parameters.put("seed", (seed <= 0 || seed > 2147483647) ? RandomUtils.generateRandomInt() : seed);
+        parameters.put("n_samples", (n_samples <= 0 || n_samples > 4) ? 1 : n_samples);
+        parameters.put("ucPreset", (ucPreset < 0 || ucPreset > 3) ? 3 : ucPreset); // V4.5推荐使用3
+        parameters.put("qualityToggle", false); // V4.5中建议关闭
+        parameters.put("sm", false); // 是否启用SMEA采样技术
+        parameters.put("sm_dyn", false); // 是否启用SMEA+DYN采样技术
+        parameters.put("dynamic_thresholding", false); // 是否启用动态阈值，防止高CFG时过饱和
+        parameters.put("controlnet_strength", 1.0); // ControlNet强度（未使用）
+        parameters.put("legacy", false); // 是否启用旧版兼容模式
+        parameters.put("add_original_image", false); // 是否在输出中添加原图（图生图/局部重绘用）
+        parameters.put("cfg_rescale", 0.0); // 引导系数重缩放，0.0为不启用
+        parameters.put("noise_schedule", "native"); // 噪声表类型
+        parameters.put("legacy_v3_extend", false); // 是否启用V3旧版扩展功能
+        parameters.put("uncond_scale", 1.0); // 负面提示词引导系数
         parameters.put("negative_prompt", uc != null ? uc : "lowres, bad anatomy, bad hands, text, error, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality, normal quality, jpeg artifacts, signature, watermark, username, blurry");
         parameters.put("prompt", prompt); // 正面提示词
+        parameters.put("reference_image_multiple", new ArrayList<>()); // Vibe Transfer 参考图片列表（未使用）
+        parameters.put("reference_information_extracted_multiple", new ArrayList<>()); // Vibe Transfer 提取信息列表（未使用）
+        parameters.put("reference_strength_multiple", new ArrayList<>()); // Vibe Transfer 强度列表（未使用）
+        parameters.put("extra_noise_seed", 0); // 额外的噪声种子，用于在主种子基础上产生微调
 
+        // V4.5模型的提示词结构
+        Map<String, Object> v4_prompt = new HashMap<>();
+        v4_prompt.put("use_coords", false);
+        v4_prompt.put("use_order", false);
+        Map<String, Object> v4_prompt_caption = new HashMap<>();
+        v4_prompt_caption.put("base_caption", prompt);
+        v4_prompt_caption.put("char_captions", new ArrayList<>());
+        v4_prompt.put("caption", v4_prompt_caption);
+        parameters.put("v4_prompt", v4_prompt);
 
+        // V4.5模型的负面提示词结构
+        Map<String, Object> v4_negative_prompt = new HashMap<>();
+        v4_negative_prompt.put("use_coords", false);
+        v4_negative_prompt.put("use_order", false);
+        Map<String, Object> v4_negative_prompt_caption = new HashMap<>();
+        v4_negative_prompt_caption.put("base_caption", uc != null ? uc : "lowres, bad anatomy, bad hands, text, error, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality, normal quality, jpeg artifacts, signature, watermark, username, blurry");
+        v4_negative_prompt_caption.put("char_captions", new ArrayList<>());
+        v4_negative_prompt.put("caption", v4_negative_prompt_caption);
+        parameters.put("v4_negative_prompt", v4_negative_prompt);
 
-        return  "";
+        try {
+            String accessToken = accessKeyoraccessToken();
+            byte[] imageBytes = generator.generateImage(accessToken, prompt, model, "generate", parameters, 300, 3);
+
+            if (imageBytes == null || imageBytes.length == 0) {
+                return "图像生成失败：返回的图像数据为空";
+            }
+
+            System.out.println("V4.5模型参数 - ucPreset: " + ucPreset);
+            System.out.println("V4.5模型参数 - seed: " + seed);
+            System.out.println("V4.5模型参数 - qualityToggle: " + qualityToggle);
+            
+            String outputFilePath = "F:/Project/Memoria/app/generated_image_v4_5.png";
+            Byte2Img.saveBytesAsImage(imageBytes, outputFilePath);
+            return "V4.5模型图像生成成功！保存路径: " + outputFilePath + " | 提示词: " + prompt;
+
+        } catch (IOException | JSONException e) {
+            return "V4.5模型图像生成过程中出现错误: " + e.getMessage();
+        }
     }
 
 
