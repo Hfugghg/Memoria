@@ -45,7 +45,7 @@ public class GenerateImageTest {
         parameters.put("height", 1216);//高
         parameters.put("scale", 5.0);//CFG系数
         parameters.put("sampler", "k_euler");//
-        parameters.put("sampler", 28);//迭代步数
+        parameters.put("steps", 28);//迭代步数
         parameters.put("n_samples", 1);//生成图像数量
         parameters.put("seed", 0);//
         parameters.put("ucPreset", 0);//
@@ -53,7 +53,7 @@ public class GenerateImageTest {
         parameters.put("uc", negative_prompt);//
 
         try {
-            byte[] imageBytes = generator.generateImage(key1, prompt, model, action, parameters, 60, 3);
+            byte[] imageBytes = generator.generateImage(key1, prompt, model, action, parameters, 120, 3);
 
             assert imageBytes != null;
             assert imageBytes.length > 0;
@@ -73,7 +73,7 @@ public class GenerateImageTest {
     public void testGenerateImageWithV4Model() {
         String prompt = "1girl, best quality, amazing quality, very aesthetic, absurdres";
         String negative_prompt = "lowres, bad anatomy, bad hands, text, error, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality, normal quality, jpeg artifacts, signature, watermark, username, blurry";
-        String model = "nai-diffusion-4-full";
+        String model = "nai-diffusion-4-5-full";
         String action = "generate";
 
         Map<String, Object> parameters = new HashMap<>();

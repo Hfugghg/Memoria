@@ -112,7 +112,72 @@ public class LocalTools {
                                     "additionalProperties": false
                                 }
                             }
-                        }
+                        },
+                        {
+                                "type": "function",
+                                "function": {
+                                    "name": "novelai4_5_generate_image",
+                                    "description": "使用 NovelAI V4.5模型生成图像，支持配置图片尺寸、采样参数、质量设置等,默认使用此模型",
+                                    "parameters": {
+                                        "type": "object",
+                                        "properties": {
+                                            "prompt": {
+                                                "type": "string",
+                                                "description": "正面提示词，描述想要生成的图像内容"
+                                            },
+                                            "model": {
+                                                "type": "string",
+                                                "description": "模型名称，默认使用 nai-diffusion-3",
+                                                "enum": ["nai-diffusion-3"]
+                                            },
+                                            "width": {
+                                                "type": "integer",
+                                                "description": "图片宽度，范围 1-2048，默认 832"
+                                            },
+                                            "height": {
+                                                "type": "integer",\s
+                                                "description": "图片高度，范围 1-2048，默认 1216"
+                                            },
+                                            "scale": {
+                                                "type": "integer",
+                                                "description": "提示词引导系数 (CFG Scale)，控制与提示词的贴合程度，范围 1-10，默认 5"
+                                            },
+                                            "sampler": {
+                                                "type": "string",
+                                                "description": "采样器算法，默认 k_euler",
+                                                "enum": ["k_euler", "k_euler_ancestral", "k_dpmpp_2m", "k_dpmpp_sde", "ddim"]
+                                            },
+                                            "steps": {
+                                                "type": "integer",
+                                                "description": "迭代步数，影响细节和生成时间，范围 1-50，默认 28"
+                                            },
+                                            "n_samples": {
+                                                "type": "integer",
+                                                "description": "生成图像数量，范围 1-4，默认 1"
+                                            },
+                                            "seed": {
+                                                "type": "integer",
+                                                "description": "随机种子，相同种子和参数可复现结果，范围 0-2147483647，默认 0 (随机) "
+                                            },
+                                            "ucPreset": {
+                                                "type": "integer",
+                                                "description": "负面内容预设，用于规避通用负面内容，范围 0-3，默认 0",
+                                                "enum": [0, 1, 2, 3]
+                                            },
+                                            "qualityToggle": {
+                                                "type": "boolean",
+                                                "description": "质量开关，开启可提升图像质量，默认 true"
+                                            },
+                                            "uc": {
+                                                "type": "string",
+                                                "description": "负面提示词，描述不希望出现在图像中的内容"
+                                            }
+                                        },
+                                        "required": ["prompt"],
+                                        "additionalProperties": false
+                                    }
+                                }
+                            }
                     ]
                 """);
         } catch (JSONException e) {
@@ -293,8 +358,8 @@ public class LocalTools {
         parameters.put("sampler", sampler != null ? sampler : "k_euler");
         parameters.put("steps", (steps <= 0 || steps > 50) ? 28 : steps);
         parameters.put("n_samples", (n_samples <= 0 || n_samples > 4) ? 1 : n_samples);
-        parameters.put("seed", seed);
-        //  parameters.put("seed", (seed <= 0 || seed > 2147483647) ? RandomUtils.generateRandomInt() : seed);
+        //parameters.put("seed", seed);
+        parameters.put("seed", (seed <= 0 || seed > 2147483647) ? RandomUtils.generateRandomInt() : seed);
         parameters.put("ucPreset", (ucPreset < 0 || ucPreset > 3) ? 0 : ucPreset);
         parameters.put("qualityToggle", qualityToggle);
         parameters.put("uc", uc != null ? uc : "lowres, bad anatomy, bad hands, text, error, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality, normal quality, jpeg artifacts, signature, watermark, username, blurry");
@@ -317,6 +382,32 @@ public class LocalTools {
             return "图像生成过程中出现错误: " + e.getMessage();
         }
     }
+
+    private String novelai4_5GenerateImage(String prompt, String model, int width, int height,
+                                           int scale, String sampler, int steps, int n_samples,
+                                           int seed, int ucPreset, boolean qualityToggle, String uc) {
+        // 参数验证和默认值设置
+        model = (model != null) ? model : "nai-diffusion-4-5-full";
+
+        Map<String, Object> parameters = new HashMap<>();
+        parameters.put("width", (width <= 0 || width > 2048) ? 832 : width);
+        parameters.put("height", (height <= 0 || height > 2048) ? 1216 : height);
+        parameters.put("scale", (scale <= 0 || scale > 10) ? 5 : scale);
+        parameters.put("sampler", sampler != null ? sampler : "k_euler");
+        parameters.put("steps", (steps <= 0 || steps > 50) ? 28 : steps);
+        parameters.put("n_samples", (n_samples <= 0 || n_samples > 4) ? 1 : n_samples);
+        parameters.put("seed", seed);
+        //  parameters.put("seed", (seed <= 0 || seed > 2147483647) ? RandomUtils.generateRandomInt() : seed);
+        parameters.put("ucPreset", (ucPreset < 0 || ucPreset > 3) ? 0 : ucPreset);
+        parameters.put("qualityToggle", qualityToggle);
+        parameters.put("negative_prompt", uc != null ? uc : "lowres, bad anatomy, bad hands, text, error, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality, normal quality, jpeg artifacts, signature, watermark, username, blurry");
+        parameters.put("prompt", prompt); // 正面提示词
+
+
+
+        return  "";
+    }
+
 
     /**
      * 获取访问密钥或令牌
